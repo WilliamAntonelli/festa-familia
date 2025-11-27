@@ -129,111 +129,143 @@
   <div class="container">
     <h1 id="tituloPagina">Controle de Gastos da Festa em Família</h1>
 
-    <!-- TÍTULO EDITÁVEL DA FESTA -->
+    <!-- LOGIN / ACESSO -->
     <fieldset>
-      <legend>Nome da Festa</legend>
-      <label>Título da festa:
-        <input type="text" id="tituloFesta" value="Controle de Gastos da Festa em Família">
+      <legend>Acesso</legend>
+      <label>Nome de quem está usando agora:
+        <input type="text" id="nomeUsuarioAtual">
       </label>
-      <div class="small">Altere aqui o nome da festa. Ele muda o título acima e o nome da aba.</div>
-    </fieldset>
-
-    <!-- PESSOAS -->
-    <fieldset>
-      <legend>Pessoas</legend>
-      <label>Nome:
-        <input type="text" id="nomePessoa">
+      <br>
+      <label>Senha da festa:
+        <input type="password" id="senhaAcesso">
       </label>
-      <button id="btnAddPessoa">Adicionar Pessoa</button>
-      <div id="listaPessoas" class="small"></div>
-    </fieldset>
-
-    <!-- REFEIÇÕES -->
-    <fieldset>
-      <legend>Refeições</legend>
-      <label>Nome da refeição:
-        <input type="text" id="nomeRefeicao">
-      </label>
-      <label>Custo total (R$):
-        <input type="number" id="custoRefeicao" step="0.01" min="0">
-      </label>
-      <button id="btnAddRefeicao">Adicionar Refeição</button>
-      <div id="listaRefeicoes" class="small"></div>
-    </fieldset>
-
-    <!-- PARTICIPAÇÃO NAS REFEIÇÕES -->
-    <fieldset>
-      <legend>Quem participou de qual refeição?</legend>
-      <p class="info">
-        Marque as caixas para indicar que a pessoa participou daquela refeição.
-        O custo de cada refeição será dividido igualmente entre os participantes.
-      </p>
-      <div class="participacao-actions">
-        <button id="btnMarcarTodos">Marcar todos (todas as refeições)</button>
-        <button id="btnDesmarcarTodos">Desmarcar todos (todas as refeições)</button>
+      <button id="btnLogin">Entrar</button>
+      <div id="statusLogin" class="small"></div>
+      <div class="small">
+        (Apenas quem tiver a senha pode ver e alterar os dados da festa.)
       </div>
-      <div id="tabelaParticipacaoWrapper"></div>
-      <div id="infoRefeicoesPorPessoa" class="small"></div>
     </fieldset>
 
-    <!-- GASTOS / COMPRAS -->
-    <fieldset>
-      <legend>Gastos (Compras)</legend>
-      <p class="info">
-        Use esta seção para registrar quem gastou dinheiro comprando ingredientes ou qualquer coisa para a festa.
-      </p>
-      <label>Pessoa:
-        <select id="selectGastoPessoa"></select>
-      </label>
-      <label>Descrição:
-        <input type="text" id="descricaoGasto" placeholder="Ex: carne, refrigerante...">
-      </label>
-      <label>Valor (R$):
-        <input type="number" id="valorGasto" step="0.01" min="0">
-      </label>
-      <button id="btnAddGasto">Registrar Gasto</button>
-      <div id="listaGastos" class="small"></div>
-    </fieldset>
+    <!-- TUDO QUE É DA APLICAÇÃO FICA DENTRO DE areaApp (BLOQUEADO ATÉ LOGAR) -->
+    <div id="areaApp" style="display:none;">
 
-    <!-- GRUPOS (RESPONSÁVEL PAGA PELOS OUTROS) -->
-    <fieldset>
-      <legend>Grupos (Responsável pelo Pagamento)</legend>
-      <p class="info">
-        Aqui você pode dizer, por exemplo, que o Pai paga pelas refeições da Esposa e dos Filhos.
-        Na conta final, o saldo de todos será somado ao responsável.
-      </p>
-      <label>Responsável:
-        <select id="selectResponsavel"></select>
-      </label>
-      <label>Membro do grupo:
-        <select id="selectMembro"></select>
-      </label>
-      <button id="btnAddGrupo">Adicionar ao grupo</button>
-      <div id="listaGrupos" class="small"></div>
-    </fieldset>
-
-    <!-- BACKUP / RESTAURAÇÃO -->
-    <fieldset>
-      <legend>Salvar / Carregar Arquivo de Dados</legend>
-      <p class="info">
-        Você pode baixar um arquivo <strong>.json</strong> com todos os cadastros e depois abrir esse arquivo em outro momento ou em outro computador.
-      </p>
-      <div class="backup-controls">
-        <button id="btnExportar">Exportar dados para arquivo (.json)</button>
-        <label>
-          Importar dados (.json):
-          <input type="file" id="inputImportar" accept="application/json">
+      <!-- TÍTULO EDITÁVEL DA FESTA -->
+      <fieldset>
+        <legend>Nome da Festa</legend>
+        <label>Título da festa:
+          <input type="text" id="tituloFesta" value="Controle de Gastos da Festa em Família">
         </label>
-      </div>
-      <div id="statusBackup" class="small"></div>
-    </fieldset>
+        <div class="small">Altere aqui o nome da festa. Ele muda o título acima e o nome da aba.</div>
+      </fieldset>
 
-    <!-- CÁLCULO FINAL -->
-    <fieldset>
-      <legend>Cálculo Final</legend>
-      <button id="btnCalcular">Calcular quanto cada um paga/recebe</button>
-      <div id="resultado" class="resultado"></div>
-    </fieldset>
+      <!-- PESSOAS -->
+      <fieldset>
+        <legend>Pessoas</legend>
+        <label>Nome:
+          <input type="text" id="nomePessoa">
+        </label>
+        <button id="btnAddPessoa">Adicionar Pessoa</button>
+        <div id="listaPessoas" class="small"></div>
+      </fieldset>
+
+      <!-- REFEIÇÕES -->
+      <fieldset>
+        <legend>Refeições</legend>
+        <label>Nome da refeição:
+          <input type="text" id="nomeRefeicao">
+        </label>
+        <label>Custo total (R$):
+          <input type="number" id="custoRefeicao" step="0.01" min="0">
+        </label>
+        <button id="btnAddRefeicao">Adicionar Refeição</button>
+        <div id="listaRefeicoes" class="small"></div>
+      </fieldset>
+
+      <!-- PARTICIPAÇÃO NAS REFEIÇÕES -->
+      <fieldset>
+        <legend>Quem participou de qual refeição?</legend>
+        <p class="info">
+          Marque as caixas para indicar que a pessoa participou daquela refeição.
+          O custo de cada refeição será dividido igualmente entre os participantes.
+        </p>
+        <div class="participacao-actions">
+          <button id="btnMarcarTodos">Marcar todos (todas as refeições)</button>
+          <button id="btnDesmarcarTodos">Desmarcar todos (todas as refeições)</button>
+        </div>
+        <div id="tabelaParticipacaoWrapper"></div>
+        <div id="infoRefeicoesPorPessoa" class="small"></div>
+      </fieldset>
+
+      <!-- GASTOS / COMPRAS -->
+      <fieldset>
+        <legend>Gastos (Compras)</legend>
+        <p class="info">
+          Use esta seção para registrar quem gastou dinheiro comprando ingredientes ou qualquer coisa para a festa.
+        </p>
+        <label>Pessoa:
+          <select id="selectGastoPessoa"></select>
+        </label>
+        <label>Descrição:
+          <input type="text" id="descricaoGasto" placeholder="Ex: carne, refrigerante...">
+        </label>
+        <label>Valor (R$):
+          <input type="number" id="valorGasto" step="0.01" min="0">
+        </label>
+        <button id="btnAddGasto">Registrar Gasto</button>
+        <div id="listaGastos" class="small"></div>
+      </fieldset>
+
+      <!-- GRUPOS (RESPONSÁVEL PAGA PELOS OUTROS) -->
+      <fieldset>
+        <legend>Grupos (Responsável pelo Pagamento)</legend>
+        <p class="info">
+          Aqui você pode dizer, por exemplo, que o Pai paga pelas refeições da Esposa e dos Filhos.
+          Na conta final, o saldo de todos será somado ao responsável.
+        </p>
+        <label>Responsável:
+          <select id="selectResponsavel"></select>
+        </label>
+        <label>Membro do grupo:
+          <select id="selectMembro"></select>
+        </label>
+        <button id="btnAddGrupo">Adicionar ao grupo</button>
+        <div id="listaGrupos" class="small"></div>
+      </fieldset>
+
+      <!-- BACKUP / RESTAURAÇÃO -->
+      <fieldset>
+        <legend>Salvar / Carregar Arquivo de Dados</legend>
+        <p class="info">
+          Você pode baixar um arquivo <strong>.json</strong> com todos os cadastros e depois abrir esse arquivo em outro momento ou em outro computador.
+        </p>
+        <div class="backup-controls">
+          <button id="btnExportar">Exportar dados para arquivo (.json)</button>
+          <label>
+            Importar dados (.json):
+            <input type="file" id="inputImportar" accept="application/json">
+          </label>
+        </div>
+        <div id="statusBackup" class="small"></div>
+      </fieldset>
+
+      <!-- CÁLCULO FINAL -->
+      <fieldset>
+        <legend>Cálculo Final</legend>
+        <button id="btnCalcular">Calcular quanto cada um paga/recebe</button>
+        <div id="resultado" class="resultado"></div>
+      </fieldset>
+
+      <!-- LOG DE AÇÕES -->
+      <fieldset>
+        <legend>Log de Ações</legend>
+        <button id="btnMostrarLog">Mostrar / Atualizar Log</button>
+        <div id="areaLog" class="small"></div>
+        <div class="small">
+          (Mostra o que foi feito, por quem e em qual horário, desde que a página foi aberta.)
+        </div>
+      </fieldset>
+
+    </div>
   </div>
 
   <!-- SCRIPT COMO MÓDULO: FIREBASE + LÓGICA -->
@@ -264,12 +296,21 @@
     // Vamos usar um doc fixo "festa-principal"
     const festaDocRef = doc(db, "festas", "festa-principal");
 
+    // --------- DOM / LOGIN ---------
+    const areaApp = document.getElementById("areaApp");
+    const statusLogin = document.getElementById("statusLogin");
+    const nomeUsuarioInput = document.getElementById("nomeUsuarioAtual");
+    const senhaAcessoInput = document.getElementById("senhaAcesso");
+    let usuarioAtual = null;
+    const SENHA_CORRETA = "familia2024"; // TROQUE AQUI SE QUISER OUTRA SENHA
+
     // --------- DADOS EM MEMÓRIA ---------
     const pessoas = [];       // { id, nome }
     const refeicoes = [];     // { id, nome, custo }
     const gastos = [];        // { pessoaId, descricao, valor }
     const grupos = [];        // { responsavelId, membroId }
     const participacao = {};  // mealId -> array de pessoaId
+    const logs = [];          // { horario, usuario, acao }
 
     let pessoaIdSeq = 1;
     let refeicaoIdSeq = 1;
@@ -280,6 +321,28 @@
 
     function formatMoney(valor) {
       return "R$ " + valor.toFixed(2).replace(".", ",");
+    }
+
+    function registrarLog(acao) {
+      const agora = new Date();
+      const horario = agora.toLocaleString("pt-BR");
+      const usuario = usuarioAtual && usuarioAtual.nome ? usuarioAtual.nome : "Anônimo";
+      logs.push({ horario, usuario, acao });
+    }
+
+    function renderizarLog() {
+      const div = document.getElementById("areaLog");
+      if (!div) return;
+      if (logs.length === 0) {
+        div.textContent = "Nenhuma ação registrada ainda.";
+        return;
+      }
+      let html = "<ul>";
+      logs.forEach(item => {
+        html += `<li>[${item.horario}] (${item.usuario}) ${item.acao}</li>`;
+      });
+      html += "</ul>";
+      div.innerHTML = html;
     }
 
     // --------- ESTADO ↔ FIRESTORE ---------
@@ -388,12 +451,35 @@
       }
     }
 
+    // --------- LOGIN ---------
+    document.getElementById("btnLogin").addEventListener("click", () => {
+      const nome = nomeUsuarioInput.value.trim();
+      const senha = senhaAcessoInput.value;
+
+      if (!nome) {
+        statusLogin.textContent = "Digite seu nome para entrar.";
+        return;
+      }
+      if (senha !== SENHA_CORRETA) {
+        statusLogin.textContent = "Senha incorreta.";
+        return;
+      }
+
+      usuarioAtual = { nome };
+      statusLogin.textContent = `Logado como ${nome}.`;
+      areaApp.style.display = "block";
+
+      registrarLog("Login realizado com sucesso.");
+      carregarDoFirestore();
+    });
+
     // --------- TÍTULO EDITÁVEL ---------
     tituloFestaInput.addEventListener("input", () => {
       const t = tituloFestaInput.value.trim();
       const texto = t || "Controle de Gastos da Festa em Família";
       tituloPagina.textContent = texto;
       document.title = texto;
+      registrarLog(`Título da festa alterado para "${texto}".`);
       salvarNoFirestore();
     });
 
@@ -425,6 +511,7 @@
 
           dragStartIndex = null;
           rebuildFn();
+          registrarLog("Ordem de itens em uma lista foi alterada.");
           salvarNoFirestore();
         });
       });
@@ -432,7 +519,6 @@
 
     // -------------- EXPORTAÇÃO / IMPORTAÇÃO (ARQUIVO) --------------
     function getEstadoAtualParaArquivo() {
-      // mesma estrutura, mas sem depender do input do título
       return getEstadoAtual();
     }
 
@@ -452,6 +538,7 @@
 
       document.getElementById("statusBackup").textContent =
         "Arquivo exportado: festa_dados.json";
+      registrarLog("Dados exportados para arquivo festa_dados.json.");
     }
 
     function importarDadosArquivo(arquivo) {
@@ -528,6 +615,7 @@
           construirTabelaParticipacao();
 
           status.textContent = "Dados importados do arquivo com sucesso.";
+          registrarLog("Dados importados a partir de arquivo .json.");
           salvarNoFirestore();
         } catch (erro) {
           console.error(erro);
@@ -544,7 +632,11 @@
     // -------------- FUNÇÕES DE EXCLUSÃO --------------
     function excluirPessoa(id) {
       const idx = pessoas.findIndex(p => p.id === id);
-      if (idx !== -1) pessoas.splice(idx, 1);
+      let nomeExcluida = "";
+      if (idx !== -1) {
+        nomeExcluida = pessoas[idx].nome;
+        pessoas.splice(idx, 1);
+      }
 
       for (let i = gastos.length - 1; i >= 0; i--) {
         if (gastos[i].pessoaId === id) gastos.splice(i, 1);
@@ -568,27 +660,56 @@
       atualizarListaGrupos();
       atualizarListaRefeicoes();
       construirTabelaParticipacao();
+      if (nomeExcluida) {
+        registrarLog(`Pessoa "${nomeExcluida}" excluída.`);
+      }
       salvarNoFirestore();
     }
 
     function excluirRefeicao(id) {
       const idx = refeicoes.findIndex(r => r.id === id);
-      if (idx !== -1) refeicoes.splice(idx, 1);
+      let nomeRef = "";
+      if (idx !== -1) {
+        nomeRef = refeicoes[idx].nome;
+        refeicoes.splice(idx, 1);
+      }
       delete participacao[id];
       atualizarListaRefeicoes();
       construirTabelaParticipacao();
+      if (nomeRef) {
+        registrarLog(`Refeição "${nomeRef}" excluída.`);
+      }
       salvarNoFirestore();
     }
 
     function excluirGasto(index) {
-      if (index >= 0 && index < gastos.length) gastos.splice(index, 1);
+      let info = "";
+      if (index >= 0 && index < gastos.length) {
+        const g = gastos[index];
+        const pessoa = pessoas.find(p => p.id === g.pessoaId);
+        info = `${pessoa ? pessoa.nome : "?"} - ${g.descricao || "sem descrição"} - ${formatMoney(g.valor)}`;
+        gastos.splice(index, 1);
+      }
       atualizarListaGastos();
+      if (info) {
+        registrarLog(`Gasto excluído: ${info}.`);
+      }
       salvarNoFirestore();
     }
 
     function excluirGrupo(index) {
-      if (index >= 0 && index < grupos.length) grupos.splice(index, 1);
+      let info = "";
+      if (index >= 0 && index < grupos.length) {
+        const g = grupos[index];
+        const resp = pessoas.find(p => p.id === g.responsavelId);
+        const memb = pessoas.find(p => p.id === g.membroId);
+        info = `${memb ? memb.nome : "?"} deixa de ter ${resp ? resp.nome : "?"} como responsável.`;
+        grupos.splice(index, 1);
+      }
       atualizarListaGrupos();
+      if (info) {
+        registrarLog(`Grupo removido: ${info}`);
+      }
       salvarNoFirestore();
     }
 
@@ -596,6 +717,7 @@
     function editarPessoa(id) {
       const p = pessoas.find(p => p.id === id);
       if (!p) return;
+      const antigo = p.nome;
       const novoNome = prompt("Novo nome da pessoa:", p.nome);
       if (novoNome && novoNome.trim()) {
         p.nome = novoNome.trim();
@@ -604,6 +726,7 @@
         construirTabelaParticipacao();
         atualizarListaGastos();
         atualizarListaGrupos();
+        registrarLog(`Pessoa renomeada de "${antigo}" para "${p.nome}".`);
         salvarNoFirestore();
       }
     }
@@ -611,6 +734,7 @@
     function editarRefeicao(id) {
       const r = refeicoes.find(r => r.id === id);
       if (!r) return;
+      const nomeAntigo = r.nome;
       const novoNome = prompt(
         "Novo nome da refeição (deixe em branco para manter):",
         r.nome
@@ -633,12 +757,16 @@
       }
       atualizarListaRefeicoes();
       construirTabelaParticipacao();
+      registrarLog(`Refeição "${nomeAntigo}" editada.`);
       salvarNoFirestore();
     }
 
     function editarGasto(index) {
       const g = gastos[index];
       if (!g) return;
+
+      const pessoa = pessoas.find(p => p.id === g.pessoaId);
+      const antes = `${pessoa ? pessoa.nome : "?"} - ${g.descricao || "sem descrição"} - ${formatMoney(g.valor)}`;
 
       const novaDesc = prompt(
         "Nova descrição (deixe em branco para manter):",
@@ -663,6 +791,8 @@
       }
 
       atualizarListaGastos();
+      const depois = `${pessoa ? pessoa.nome : "?"} - ${g.descricao || "sem descrição"} - ${formatMoney(g.valor)}`;
+      registrarLog(`Gasto editado: antes "${antes}", depois "${depois}".`);
       salvarNoFirestore();
     }
 
@@ -969,8 +1099,20 @@
           const arr = participacao[refeicaoId];
           const idx = arr.indexOf(pessoaId);
 
-          if (this.checked && idx === -1) arr.push(pessoaId);
-          else if (!this.checked && idx !== -1) arr.splice(idx, 1);
+          const pessoa = pessoas.find(p => p.id === pessoaId);
+          const refeicao = refeicoes.find(r => r.id === refeicaoId);
+
+          if (this.checked && idx === -1) {
+            arr.push(pessoaId);
+            registrarLog(
+              `"${pessoa ? pessoa.nome : "Pessoa"}" foi marcado(a) na refeição "${refeicao ? refeicao.nome : "?"}".`
+            );
+          } else if (!this.checked && idx !== -1) {
+            arr.splice(idx, 1);
+            registrarLog(
+              `"${pessoa ? pessoa.nome : "Pessoa"}" foi desmarcado(a) da refeição "${refeicao ? refeicao.nome : "?"}".`
+            );
+          }
 
           atualizarInfoRefeicoesPorPessoa();
           salvarNoFirestore();
@@ -983,8 +1125,12 @@
         .forEach(btn => {
           btn.addEventListener("click", () => {
             const refeicaoId = parseInt(btn.getAttribute("data-refeicao"));
+            const refeicao = refeicoes.find(r => r.id === refeicaoId);
             participacao[refeicaoId] = pessoas.map(p => p.id);
             construirTabelaParticipacao();
+            registrarLog(
+              `Todas as pessoas foram marcadas na refeição "${refeicao ? refeicao.nome : "?"}".`
+            );
             salvarNoFirestore();
           });
         });
@@ -994,8 +1140,12 @@
         .forEach(btn => {
           btn.addEventListener("click", () => {
             const refeicaoId = parseInt(btn.getAttribute("data-refeicao"));
+            const refeicao = refeicoes.find(r => r.id === refeicaoId);
             participacao[refeicaoId] = [];
             construirTabelaParticipacao();
+            registrarLog(
+              `Todas as pessoas foram desmarcadas da refeição "${refeicao ? refeicao.nome : "?"}".`
+            );
             salvarNoFirestore();
           });
         });
@@ -1088,6 +1238,7 @@
       atualizarListaPessoas();
       atualizarSelectsPessoas();
       construirTabelaParticipacao();
+      registrarLog(`Pessoa "${nome}" adicionada.`);
       salvarNoFirestore();
     });
 
@@ -1110,6 +1261,7 @@
       document.getElementById("custoRefeicao").value = "";
       atualizarListaRefeicoes();
       construirTabelaParticipacao();
+      registrarLog(`Refeição "${nome}" adicionada com custo ${formatMoney(custo)}.`);
       salvarNoFirestore();
     });
 
@@ -1133,6 +1285,11 @@
       document.getElementById("descricaoGasto").value = "";
       document.getElementById("valorGasto").value = "";
       atualizarListaGastos();
+
+      const pessoa = pessoas.find(p => p.id === pessoaId);
+      registrarLog(
+        `Gasto registrado para ${pessoa ? pessoa.nome : "?"}: ${descricao || "sem descrição"} - ${formatMoney(valor)}.`
+      );
       salvarNoFirestore();
     });
 
@@ -1163,6 +1320,12 @@
 
       grupos.push({ responsavelId, membroId });
       atualizarListaGrupos();
+
+      const resp = pessoas.find(p => p.id === responsavelId);
+      const memb = pessoas.find(p => p.id === membroId);
+      registrarLog(
+        `${memb ? memb.nome : "Membro"} passou a ter ${resp ? resp.nome : "Responsável"} como responsável no grupo.`
+      );
       salvarNoFirestore();
     });
 
@@ -1176,6 +1339,7 @@
         participacao[r.id] = pessoas.map(p => p.id);
       });
       construirTabelaParticipacao();
+      registrarLog("Todas as pessoas foram marcadas em todas as refeições.");
       salvarNoFirestore();
     });
 
@@ -1187,6 +1351,7 @@
           participacao[r.id] = [];
         });
         construirTabelaParticipacao();
+        registrarLog("Todas as pessoas foram desmarcadas de todas as refeições.");
         salvarNoFirestore();
       });
 
@@ -1335,6 +1500,8 @@
 
       html += "</tbody></table>";
       divResultado.innerHTML = html;
+
+      registrarLog("Cálculo final executado.");
     });
 
     // Exportar / importar arquivo
@@ -1349,15 +1516,18 @@
         }
       });
 
-    // Estado inicial mínimo da UI
+    // Botão para mostrar log
+    document.getElementById("btnMostrarLog").addEventListener("click", () => {
+      renderizarLog();
+    });
+
+    // Estado inicial mínimo da UI (listas vazias)
     atualizarListaPessoas();
     atualizarListaRefeicoes();
     atualizarListaGastos();
     atualizarListaGrupos();
     construirTabelaParticipacao();
-
-    // Carrega dados do Firestore assim que a página abrir
-    carregarDoFirestore();
+    // OBS: carregarDoFirestore() só é chamado depois do login.
   </script>
 </body>
 </html>
