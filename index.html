@@ -154,6 +154,21 @@
       <div id="loginStatus" class="small">
         Informe seu nome e a senha combinada da família.
       </div>
+
+      <hr>
+      <div class="small"><strong>Mudança de senha de entrada</strong></div>
+      <label>Senha mestra:
+        <input type="password" id="senhaMestra">
+      </label>
+      <button id="btnValidarMestra">Liberar troca</button>
+
+      <div id="areaTrocaSenha" style="display:none; margin-top:5px;">
+        <label>Nova senha da família:
+          <input type="password" id="novaSenhaFamilia">
+        </label>
+        <button id="btnSalvarNovaSenha">Salvar nova senha</button>
+        <div id="statusTrocaSenha" class="small"></div>
+      </div>
     </fieldset>
 
     <!-- TUDO ABAIXO SÓ APARECE DEPOIS DO LOGIN -->
@@ -322,8 +337,10 @@
     // Documento fixo da festa
     const festaDocRef = doc(db, "festas", "festa-principal");
 
-    // --------- LOGIN SIMPLES ---------
-    const SENHA_FAMILIA = "salvador1234";
+    // --------- LOGIN E SENHAS ---------
+    const SENHA_MESTRA = "5048558";
+    let senhaFamiliaAtual = "salvador1234"; // começa com essa, mas pode ser alterada e salva
+
     let usuarioAtual = null;
 
     const areaLogin = document.getElementById("areaLogin");
@@ -331,6 +348,12 @@
     const loginNomeInput = document.getElementById("loginNome");
     const loginSenhaInput = document.getElementById("loginSenha");
     const loginStatus = document.getElementById("loginStatus");
+
+    const senhaMestraInput = document.getElementById("senhaMestra");
+    const btnValidarMestra = document.getElementById("btnValidarMestra");
+    const areaTrocaSenha = document.getElementById("areaTrocaSenha");
+    const novaSenhaFamiliaInput = document.getElementById("novaSenhaFamilia");
+    const statusTrocaSenha = document.getElementById("statusTrocaSenha");
 
     document.getElementById("btnLogin").addEventListener("click", async () => {
       const nome = loginNomeInput.value.trim();
@@ -341,7 +364,7 @@
         return;
       }
 
-      if (senha !== SENHA_FAMILIA) {
+      if (senha !== senhaFamiliaAtual) {
         loginStatus.textContent = "Senha incorreta. Tente novamente.";
         return;
       }
@@ -354,6 +377,39 @@
       // Carrega dados da festa e registra login no log
       await carregarDoFirestore();
       await registrarLog("Login", "Usuário entrou no sistema.");
+    });
+
+    // Validação da senha mestra para liberar troca
+    btnValidarMestra.addEventListener("click", () => {
+      const val = senhaMestraInput.value;
+      if (val === SENHA_MESTRA) {
+        areaTrocaSenha.style.display = "block";
+        statusTrocaSenha.textContent =
+          "Senha mestra correta. Digite a nova senha de entrada.";
+      } else {
+        areaTrocaSenha.style.display = "none";
+        statusTrocaSenha.textContent = "Senha mestra incorreta.";
+      }
+    });
+
+    // Salvar nova senha de entrada
+    document.getElementById("btnSalvarNovaSenha").addEventListener("click", () => {
+      const nova = novaSenhaFamiliaInput.value.trim();
+      if (!nova) {
+        statusTrocaSenha.textContent = "Digite uma nova senha válida.";
+        return;
+      }
+      senhaFamiliaAtual = nova;
+      novaSenhaFamiliaInput.value = "";
+      senhaMestraInput.value = "";
+      areaTrocaSenha.style.display = "none";
+      statusTrocaSenha.textContent = "Senha de entrada alterada com sucesso.";
+
+      salvarNoFirestore();
+      registrarLog(
+        "Alterar senha de entrada",
+        "Senha de entrada alterada (valor não registrado por segurança)."
+      );
     });
 
     // --------- DADOS EM MEMÓRIA ---------
@@ -428,7 +484,17 @@
       const titulo =
         tituloFestaInput.value.trim() || "Controle de Gastos da Festa em Família";
       const observacoes = observacoesInput ? observacoesInput.value : "";
-      return { titulo, observacoes, pessoas, refeicoes, gastos, grupos, participacao };
+      // agora também salva a senha da família
+      return {
+        titulo,
+        observacoes,
+        senhaFamilia: senhaFamiliaAtual,
+        pessoas,
+        refeicoes,
+        gastos,
+        grupos,
+        participacao
+      };
     }
 
     async function salvarNoFirestore() {
@@ -473,6 +539,11 @@
         gastos.length = 0;
         grupos.length = 0;
         for (const k in participacao) delete participacao[k];
+
+        // senha da família vinda da nuvem (se existir)
+        if (obj.senhaFamilia && typeof obj.senhaFamilia === "string") {
+          senhaFamiliaAtual = obj.senhaFamilia;
+        }
 
         if (obj.titulo) {
           tituloFestaInput.value = obj.titulo;
@@ -637,6 +708,11 @@
           gastos.length = 0;
           grupos.length = 0;
           for (const k in participacao) delete participacao[k];
+
+          // senha da família vinda do arquivo (se existir)
+          if (obj.senhaFamilia && typeof obj.senhaFamilia === "string") {
+            senhaFamiliaAtual = obj.senhaFamilia;
+          }
 
           if (obj.titulo) {
             tituloFestaInput.value = obj.titulo;
@@ -1528,7 +1604,7 @@
         registrarLog("Desmarcar todos", "Removidas todas as participações.");
       });
 
-    // Cálculo com tabela detalhada
+    // Cálculo com tabela detalhada (AJUSTADO PARA GRUPOS EM CADEIA)
     document.getElementById("btnCalcular").addEventListener("click", () => {
       const divResultado = document.getElementById("resultado");
 
@@ -1548,6 +1624,31 @@
         totalRefeicoesPorPessoa
       } = calc;
 
+      // mapa membro -> responsável direto
+      const responsavelDireto = {};
+      grupos.forEach(g => {
+        responsavelDireto[g.membroId] = g.responsavelId;
+      });
+
+      // encontra o responsável final (topo da cadeia)
+      function getResponsavelTopo(id) {
+        let atual = id;
+        const visitados = new Set();
+        while (responsavelDireto[atual] !== undefined && !visitados.has(atual)) {
+          visitados.add(atual);
+          atual = responsavelDireto[atual];
+        }
+        return atual;
+      }
+
+      // agrupa todas as pessoas por responsável final
+      const contribPorTopo = {};
+      pessoas.forEach(p => {
+        const topo = getResponsavelTopo(p.id);
+        if (!contribPorTopo[topo]) contribPorTopo[topo] = [];
+        contribPorTopo[topo].push(p.id);
+      });
+
       let html =
         "<table><thead><tr>" +
         "<th>Pessoa</th>" +
@@ -1562,6 +1663,10 @@
         const g = gastou[p.id] || 0;
         const sFinal = saldoFinal[p.id] || 0;
         const sIndiv = saldoIndividual[p.id] || 0;
+
+        const topo = getResponsavelTopo(p.id);
+        const membrosDoMeuTopo = contribPorTopo[topo] || [];
+        const souTopo = topo === p.id;
 
         let situacao = "";
         let classe = "";
@@ -1607,29 +1712,52 @@
           resumo += "Saldo individual (sem grupos): ficou zerado. ";
         }
 
-        const meusMembros = grupos
+        // membros diretos deste responsável (para texto intermediário)
+        const meusMembrosDiretos = grupos
           .filter(gp => gp.responsavelId === p.id)
           .map(gp => gp.membroId);
 
-        if (meusMembros.length > 0) {
-          const partesMembros = meusMembros.map(idM => {
+        // Se sou o responsável final (topo) de um grupo com mais pessoas,
+        // explico que o saldo final inclui todo mundo da cadeia.
+        if (souTopo && membrosDoMeuTopo.length > 1) {
+          const partesMembrosTopo = membrosDoMeuTopo
+            .filter(idM => idM !== p.id)
+            .map(idM => {
+              const pessoaM = pessoas.find(x => x.id === idM);
+              const sM = saldoIndividual[idM] || 0;
+              const nomeM = pessoaM ? pessoaM.nome : `Pessoa #${idM}`;
+              if (sM > 0.009) {
+                return `${nomeM}: tem a receber ${formatMoney(sM)}`;
+              } else if (sM < -0.009) {
+                return `${nomeM}: tem a pagar ${formatMoney(-sM)}`;
+              } else {
+                return `${nomeM}: saldo zerado`;
+              }
+            });
+          if (partesMembrosTopo.length > 0) {
+            resumo += `Este saldo final inclui também os saldos de: ${partesMembrosTopo.join(
+              "; "
+            )}. `;
+          }
+        } else if (!souTopo && meusMembrosDiretos.length > 0) {
+          // Responsável intermediário (como a Camila): mostra quem ela cobre,
+          // mas avisa que o saldo foi repassado para o topo.
+          const partesDiretos = meusMembrosDiretos.map(idM => {
             const pessoaM = pessoas.find(x => x.id === idM);
-            const sM = saldoIndividual[idM] || 0;
-            const nomeM = pessoaM ? pessoaM.nome : `Pessoa #${idM}`;
-            if (sM > 0.009) {
-              return `${nomeM}: tem a receber ${formatMoney(sM)}`;
-            } else if (sM < -0.009) {
-              return `${nomeM}: tem a pagar ${formatMoney(-sM)}`;
-            } else {
-              return `${nomeM}: saldo zerado`;
-            }
+            return pessoaM ? pessoaM.nome : `Pessoa #${idM}`;
           });
-          resumo += `Inclui também os saldos de: ${partesMembros.join(
-            "; "
+          const topoPessoa = pessoas.find(x => x.id === topo);
+          resumo += `É responsável diretamente por: ${partesDiretos.join(
+            ", "
           )}. `;
+          if (topoPessoa && topoPessoa.id !== p.id) {
+            resumo += `No entanto, o saldo desse grupo foi transferido para o responsável final ${topoPessoa.nome}. `;
+          }
         }
 
-        if (meusMembros.length > 0) {
+        // Texto do saldo final: se sou topo de grupo, fala "saldo do grupo",
+        // senão fala "saldo final" normal.
+        if (souTopo && membrosDoMeuTopo.length > 1) {
           if (sFinal > 0.009) {
             resumo += `Saldo final do grupo (responsável ${p.nome}): tem a receber ${formatMoney(
               sFinal
@@ -1651,13 +1779,19 @@
           }
         }
 
-        const ehMembro = grupos.some(gp => gp.membroId === p.id);
+        // Se a pessoa é membro de algum grupo, explica onde o saldo dela foi considerado
+        const ehMembro = responsavelDireto[p.id] !== undefined;
         if (ehMembro) {
-          const resp = grupos.find(gp => gp.membroId === p.id);
-          const respPessoa = pessoas.find(x => x.id === resp.responsavelId);
-          resumo += ` (Saldo individual considerado no responsável: ${
-            respPessoa ? respPessoa.nome : "?"
-          })`;
+          const respId = responsavelDireto[p.id];
+          const respPessoa = pessoas.find(x => x.id === respId);
+          const topoPessoa = pessoas.find(x => x.id === topo);
+          if (respPessoa && topoPessoa && topoPessoa.id !== respPessoa.id) {
+            resumo += ` (Saldo individual considerado no responsável ${respPessoa.nome} e, ao final, no responsável principal ${topoPessoa.nome}.)`;
+          } else if (respPessoa) {
+            resumo += ` (Saldo individual considerado no responsável: ${respPessoa.nome}.)`;
+          } else {
+            resumo += " (Saldo individual considerado em um responsável de grupo.)";
+          }
         }
 
         html +=
