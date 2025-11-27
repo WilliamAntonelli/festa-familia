@@ -125,18 +125,9 @@
       margin-right: 5px;
     }
 
-    #appContent {
-      margin-top: 10px;
-    }
-
-    #areaLogs {
-      max-height: 250px;
-      overflow-y: auto;
-      background: #fafafa;
-      padding: 8px;
-      border-radius: 4px;
-      border: 1px solid #ddd;
-      margin-top: 8px;
+    /* Área principal começa escondida (só aparece depois do login) */
+    #areaApp {
+      display: none;
     }
   </style>
 </head>
@@ -144,26 +135,25 @@
   <div class="container">
     <h1 id="tituloPagina">Controle de Gastos da Festa em Família</h1>
 
-    <!-- LOGIN SIMPLES (NOME + SENHA FIXA) -->
-    <fieldset id="authBox">
+    <!-- LOGIN SIMPLES -->
+    <fieldset id="areaLogin">
       <legend>Acesso</legend>
-      <p class="small">
-        Digite seu nome e a senha da festa para usar o sistema.
-      </p>
       <label>Seu nome:
-        <input type="text" id="inputNomeUsuario" placeholder="Ex: William">
+        <input type="text" id="loginNome">
       </label>
       <br>
-      <label>Senha da festa:
-        <input type="password" id="inputSenha">
+      <label>Senha da família:
+        <input type="password" id="loginSenha">
       </label>
       <br>
-      <button id="btnEntrar">Entrar</button>
-      <div class="small" id="authStatus">Apenas quem souber a senha pode entrar.</div>
+      <button id="btnLogin">Entrar</button>
+      <div id="loginStatus" class="small">
+        Informe seu nome e a senha combinada da família.
+      </div>
     </fieldset>
 
-    <!-- CONTEÚDO PRINCIPAL (SOME ATÉ LOGAR) -->
-    <div id="appContent" style="display:none;">
+    <!-- TUDO ABAIXO SÓ APARECE DEPOIS DO LOGIN -->
+    <div id="areaApp">
       <!-- TÍTULO EDITÁVEL DA FESTA -->
       <fieldset>
         <legend>Nome da Festa</legend>
@@ -273,11 +263,11 @@
       <!-- LOG DE AÇÕES -->
       <fieldset>
         <legend>Log de ações</legend>
-        <p class="small">
-          Clique para ver tudo que foi feito (quem fez, o quê e a hora).
+        <p class="info">
+          Aqui você pode ver tudo o que foi feito (quem adicionou pessoa, refeição, marcou participação, etc.).
         </p>
-        <button id="btnMostrarLogs">Mostrar / atualizar log</button>
-        <div id="areaLogs" class="small"></div>
+        <button id="btnVerLog">Ver log completo</button>
+        <div id="areaLog" class="small" style="margin-top: 10px;"></div>
       </fieldset>
     </div>
   </div>
@@ -290,7 +280,13 @@
       getFirestore,
       doc,
       getDoc,
-      setDoc
+      setDoc,
+      collection,
+      addDoc,
+      getDocs,
+      query,
+      orderBy,
+      serverTimestamp
     } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
 
     // Config do seu projeto
@@ -307,8 +303,43 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // Usaremos um doc fixo "festa-principal"
+    // Documento fixo da festa
     const festaDocRef = doc(db, "festas", "festa-principal");
+
+    // --------- LOGIN SIMPLES ---------
+    // Troque AQUI a senha da família:
+    const SENHA_FAMILIA = "1234";
+    let usuarioAtual = null;
+
+    const areaLogin = document.getElementById("areaLogin");
+    const areaApp = document.getElementById("areaApp");
+    const loginNomeInput = document.getElementById("loginNome");
+    const loginSenhaInput = document.getElementById("loginSenha");
+    const loginStatus = document.getElementById("loginStatus");
+
+    document.getElementById("btnLogin").addEventListener("click", async () => {
+      const nome = loginNomeInput.value.trim();
+      const senha = loginSenhaInput.value;
+
+      if (!nome || !senha) {
+        loginStatus.textContent = "Preencha seu nome e a senha.";
+        return;
+      }
+
+      if (senha !== SENHA_FAMILIA) {
+        loginStatus.textContent = "Senha incorreta. Tente novamente.";
+        return;
+      }
+
+      usuarioAtual = nome;
+      loginStatus.textContent = `Bem-vindo, ${nome}!`;
+      areaLogin.style.display = "none";
+      areaApp.style.display = "block";
+
+      // Carrega dados da festa e registra login no log
+      await carregarDoFirestore();
+      await registrarLog("Login", "Usuário entrou no sistema.");
+    });
 
     // --------- DADOS EM MEMÓRIA ---------
     const pessoas = [];       // { id, nome }
@@ -316,42 +347,38 @@
     const gastos = [];        // { pessoaId, descricao, valor }
     const grupos = [];        // { responsavelId, membroId }
     const participacao = {};  // mealId -> array de pessoaId
-    const logs = [];          // { horario, usuario, acao }
 
     let pessoaIdSeq = 1;
     let refeicaoIdSeq = 1;
 
-    // login simples
-    const SENHA_CORRETA = "familia2024"; // TROQUE AQUI SE QUISER OUTRA SENHA
-    let usuarioAtualNome = null;
-
     // --------- DOM BÁSICO ---------
     const tituloPagina = document.getElementById("tituloPagina");
     const tituloFestaInput = document.getElementById("tituloFesta");
-    const appContent = document.getElementById("appContent");
-    const authBox = document.getElementById("authBox");
-    const authStatus = document.getElementById("authStatus");
-    const inputNomeUsuario = document.getElementById("inputNomeUsuario");
-    const inputSenha = document.getElementById("inputSenha");
-    const btnEntrar = document.getElementById("btnEntrar");
-    const areaLogs = document.getElementById("areaLogs");
 
     function formatMoney(valor) {
       return "R$ " + valor.toFixed(2).replace(".", ",");
     }
 
-    function addLog(acao) {
-      const agora = new Date();
-      const horario = agora.toLocaleString("pt-BR");
-      const usuario = usuarioAtualNome || "Usuário não identificado";
-      logs.push({ horario, usuario, acao });
+    // --------- LOG NO FIRESTORE ---------
+    async function registrarLog(acao, detalhes) {
+      try {
+        if (!usuarioAtual) return;
+        await addDoc(collection(db, "logs"), {
+          usuario: usuarioAtual,
+          acao,
+          detalhes,
+          createdAt: serverTimestamp()
+        });
+      } catch (erro) {
+        console.error("Erro ao registrar log:", erro);
+      }
     }
 
     // --------- ESTADO ↔ FIRESTORE ---------
     function getEstadoAtual() {
       const titulo =
         tituloFestaInput.value.trim() || "Controle de Gastos da Festa em Família";
-      return { titulo, pessoas, refeicoes, gastos, grupos, participacao, logs };
+      return { titulo, pessoas, refeicoes, gastos, grupos, participacao };
     }
 
     async function salvarNoFirestore() {
@@ -370,26 +397,6 @@
       }
     }
 
-    function limparMemoria() {
-      pessoas.length = 0;
-      refeicoes.length = 0;
-      gastos.length = 0;
-      grupos.length = 0;
-      logs.length = 0;
-      for (const k in participacao) delete participacao[k];
-
-      atualizarListaPessoas();
-      atualizarSelectsPessoas();
-      atualizarListaRefeicoes();
-      atualizarListaGastos();
-      atualizarListaGrupos();
-      construirTabelaParticipacao();
-      atualizarInfoRefeicoesPorPessoa();
-      areaLogs.innerHTML = "";
-      const resultado = document.getElementById("resultado");
-      if (resultado) resultado.innerHTML = "";
-    }
-
     async function carregarDoFirestore() {
       const status = document.getElementById("statusBackup");
       try {
@@ -399,12 +406,24 @@
             status.textContent =
               "Nenhum dado na nuvem ainda. Use normalmente que será salvo no Firestore.";
           }
+          // UI vazia
+          atualizarListaPessoas();
+          atualizarSelectsPessoas();
+          atualizarListaRefeicoes();
+          atualizarListaGastos();
+          atualizarListaGrupos();
+          construirTabelaParticipacao();
           return;
         }
 
         const obj = snap.data() || {};
 
-        limparMemoria();
+        // Limpa estruturas
+        pessoas.length = 0;
+        refeicoes.length = 0;
+        gastos.length = 0;
+        grupos.length = 0;
+        for (const k in participacao) delete participacao[k];
 
         // Título, se tiver
         if (obj.titulo) {
@@ -450,10 +469,8 @@
               : [];
           }
         }
-        if (Array.isArray(obj.logs)) {
-          obj.logs.forEach(l => logs.push(l));
-        }
 
+        // Ajusta sequenciais
         const maxPessoaId = pessoas.reduce((max, p) => Math.max(max, p.id || 0), 0);
         const maxRefeicaoId = refeicoes.reduce(
           (max, r) => Math.max(max, r.id || 0),
@@ -462,47 +479,23 @@
         pessoaIdSeq = maxPessoaId + 1;
         refeicaoIdSeq = maxRefeicaoId + 1;
 
+        // Atualiza UI
         atualizarListaPessoas();
         atualizarSelectsPessoas();
         atualizarListaRefeicoes();
         atualizarListaGastos();
         atualizarListaGrupos();
         construirTabelaParticipacao();
-        atualizarInfoRefeicoesPorPessoa();
-
-        if (status) status.textContent = "Dados carregados do Firestore.";
+        if (status) {
+          status.textContent = "Dados carregados do Firestore.";
+        }
       } catch (erro) {
         console.error("Erro ao carregar do Firestore:", erro);
-        if (status) status.textContent = "Falha ao carregar dados do Firestore.";
+        if (status) {
+          status.textContent = "Falha ao carregar dados do Firestore.";
+        }
       }
     }
-
-    // --------- LOGIN SIMPLES (NOME + SENHA) ---------
-    btnEntrar.addEventListener("click", () => {
-      const nome = inputNomeUsuario.value.trim();
-      const senha = inputSenha.value;
-
-      if (!nome) {
-        authStatus.textContent = "Digite seu nome.";
-        return;
-      }
-      if (!senha) {
-        authStatus.textContent = "Digite a senha da festa.";
-        return;
-      }
-      if (senha !== SENHA_CORRETA) {
-        authStatus.textContent = "Senha incorreta.";
-        return;
-      }
-
-      usuarioAtualNome = nome;
-      authStatus.textContent = `Bem-vindo(a), ${usuarioAtualNome}!`;
-      authBox.style.display = "none";
-      appContent.style.display = "block";
-
-      addLog(`Entrou no sistema.`);
-      carregarDoFirestore();
-    });
 
     // --------- TÍTULO EDITÁVEL ---------
     tituloFestaInput.addEventListener("input", () => {
@@ -510,12 +503,11 @@
       const texto = t || "Controle de Gastos da Festa em Família";
       tituloPagina.textContent = texto;
       document.title = texto;
-      addLog(`Alterou o título da festa para "${texto}".`);
       salvarNoFirestore();
     });
 
     // -------------- DRAG & DROP GENÉRICO --------------
-    function makeTableRowsDraggable(container, arrayRef, rebuildFn, descricaoAcao) {
+    function makeTableRowsDraggable(container, arrayRef, rebuildFn) {
       const rows = container.querySelectorAll("tbody tr");
       let dragStartIndex = null;
 
@@ -542,7 +534,6 @@
 
           dragStartIndex = null;
           rebuildFn();
-          if (descricaoAcao) addLog(descricaoAcao);
           salvarNoFirestore();
         });
       });
@@ -567,11 +558,8 @@
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      const status = document.getElementById("statusBackup");
-      if (status) {
-        status.textContent = "Arquivo exportado: festa_dados.json";
-      }
-      addLog("Exportou os dados para arquivo JSON.");
+      document.getElementById("statusBackup").textContent =
+        "Arquivo exportado: festa_dados.json";
     }
 
     function importarDadosArquivo(arquivo) {
@@ -582,7 +570,11 @@
           const texto = e.target.result;
           const obj = JSON.parse(texto);
 
-          limparMemoria();
+          pessoas.length = 0;
+          refeicoes.length = 0;
+          gastos.length = 0;
+          grupos.length = 0;
+          for (const k in participacao) delete participacao[k];
 
           if (obj.titulo) {
             tituloFestaInput.value = obj.titulo;
@@ -627,9 +619,6 @@
                 : [];
             }
           }
-          if (Array.isArray(obj.logs)) {
-            obj.logs.forEach(l => logs.push(l));
-          }
 
           const maxPessoaId = pessoas.reduce((max, p) => Math.max(max, p.id || 0), 0);
           const maxRefeicaoId = refeicoes.reduce(
@@ -645,30 +634,24 @@
           atualizarListaGastos();
           atualizarListaGrupos();
           construirTabelaParticipacao();
-          atualizarInfoRefeicoesPorPessoa();
 
-          if (status) status.textContent = "Dados importados do arquivo com sucesso.";
-          addLog("Importou dados a partir de um arquivo JSON.");
+          status.textContent = "Dados importados do arquivo com sucesso.";
           salvarNoFirestore();
+          registrarLog("Importar arquivo", "Dados importados de JSON.");
         } catch (erro) {
           console.error(erro);
-          if (status) {
-            status.textContent =
-              "Erro ao importar arquivo. Verifique se é um JSON válido.";
-          }
+          status.textContent =
+            "Erro ao importar arquivo. Verifique se é um JSON válido.";
         }
       };
       reader.onerror = () => {
-        if (status) status.textContent = "Erro ao ler o arquivo.";
+        status.textContent = "Erro ao ler o arquivo.";
       };
       reader.readAsText(arquivo, "utf-8");
     }
 
     // -------------- FUNÇÕES DE EXCLUSÃO --------------
     function excluirPessoa(id) {
-      const p = pessoas.find(p => p.id === id);
-      const nome = p ? p.nome : `id ${id}`;
-
       const idx = pessoas.findIndex(p => p.id === id);
       if (idx !== -1) pessoas.splice(idx, 1);
 
@@ -694,59 +677,39 @@
       atualizarListaGrupos();
       atualizarListaRefeicoes();
       construirTabelaParticipacao();
-      atualizarInfoRefeicoesPorPessoa();
-      addLog(`Removeu a pessoa "${nome}" e todos os dados relacionados.`);
       salvarNoFirestore();
+      registrarLog("Excluir pessoa", `ID pessoa: ${id}`);
     }
 
     function excluirRefeicao(id) {
-      const r = refeicoes.find(r => r.id === id);
-      const nome = r ? r.nome : `id ${id}`;
-
       const idx = refeicoes.findIndex(r => r.id === id);
       if (idx !== -1) refeicoes.splice(idx, 1);
       delete participacao[id];
       atualizarListaRefeicoes();
       construirTabelaParticipacao();
-      atualizarInfoRefeicoesPorPessoa();
-      addLog(`Removeu a refeição "${nome}".`);
       salvarNoFirestore();
+      registrarLog("Excluir refeição", `ID refeição: ${id}`);
     }
 
     function excluirGasto(index) {
-      const g = gastos[index];
-      if (!g) return;
-      const pessoa = pessoas.find(p => p.id === g.pessoaId);
-      const nomePessoa = pessoa ? pessoa.nome : "?";
-
-      gastos.splice(index, 1);
+      if (index >= 0 && index < gastos.length) gastos.splice(index, 1);
       atualizarListaGastos();
-      addLog(
-        `Excluiu um gasto de ${formatMoney(g.valor)} de "${g.descricao || "sem descrição"}" registrado para ${nomePessoa}.`
-      );
       salvarNoFirestore();
+      registrarLog("Excluir gasto", `Índice gasto: ${index}`);
     }
 
     function excluirGrupo(index) {
-      const g = grupos[index];
-      if (!g) return;
-
-      const resp = pessoas.find(p => p.id === g.responsavelId);
-      const memb = pessoas.find(p => p.id === g.membroId);
-
-      grupos.splice(index, 1);
+      if (index >= 0 && index < grupos.length) grupos.splice(index, 1);
       atualizarListaGrupos();
-      addLog(
-        `Removeu o membro "${memb ? memb.nome : "?"}" do grupo do responsável "${resp ? resp.nome : "?"}".`
-      );
       salvarNoFirestore();
+      registrarLog("Excluir grupo", `Índice grupo: ${index}`);
     }
 
     // -------------- FUNÇÕES DE EDIÇÃO --------------
     function editarPessoa(id) {
       const p = pessoas.find(p => p.id === id);
       if (!p) return;
-      const antigo = p.nome;
+      const antigoNome = p.nome;
       const novoNome = prompt("Novo nome da pessoa:", p.nome);
       if (novoNome && novoNome.trim()) {
         p.nome = novoNome.trim();
@@ -755,18 +718,18 @@
         construirTabelaParticipacao();
         atualizarListaGastos();
         atualizarListaGrupos();
-        addLog(`Renomeou a pessoa "${antigo}" para "${p.nome}".`);
         salvarNoFirestore();
+        registrarLog(
+          "Editar pessoa",
+          `De "${antigoNome}" para "${p.nome}"`
+        );
       }
     }
 
     function editarRefeicao(id) {
       const r = refeicoes.find(r => r.id === id);
       if (!r) return;
-
-      const antigoNome = r.nome;
-      const antigoCusto = r.custo;
-
+      const nomeAntigo = r.nome;
       const novoNome = prompt(
         "Novo nome da refeição (deixe em branco para manter):",
         r.nome
@@ -774,6 +737,7 @@
       if (novoNome !== null && novoNome.trim() !== "") {
         r.nome = novoNome.trim();
       }
+      const custoAntigo = r.custo;
       const novoCustoStr = prompt(
         "Novo custo total da refeição (R$). Deixe em branco para manter:",
         r.custo.toString().replace(".", ",")
@@ -789,24 +753,18 @@
       }
       atualizarListaRefeicoes();
       construirTabelaParticipacao();
-      atualizarInfoRefeicoesPorPessoa();
-      addLog(
-        `Editou a refeição "${antigoNome}" (R$ ${antigoCusto.toFixed(
-          2
-        )}) para "${r.nome}" (R$ ${r.custo.toFixed(2)}).`
-      );
       salvarNoFirestore();
+      registrarLog(
+        "Editar refeição",
+        `Refeição "${nomeAntigo}" (custo antigo ${formatMoney(custoAntigo)})`
+      );
     }
 
     function editarGasto(index) {
       const g = gastos[index];
       if (!g) return;
 
-      const pessoa = pessoas.find(p => p.id === g.pessoaId);
-      const nomePessoa = pessoa ? pessoa.nome : "?";
       const descAntiga = g.descricao || "";
-      const valorAntigo = g.valor;
-
       const novaDesc = prompt(
         "Nova descrição (deixe em branco para manter):",
         g.descricao || ""
@@ -815,6 +773,7 @@
         if (novaDesc.trim() !== "") g.descricao = novaDesc.trim();
       }
 
+      const valorAntigo = g.valor;
       const valorStr = prompt(
         "Novo valor (R$). Deixe em branco para manter:",
         g.valor.toString().replace(".", ",")
@@ -830,12 +789,13 @@
       }
 
       atualizarListaGastos();
-      addLog(
-        `Editou um gasto de ${nomePessoa}: antes ${formatMoney(
-          valorAntigo
-        )} "${descAntiga}", agora ${formatMoney(g.valor)} "${g.descricao || ""}".`
-      );
       salvarNoFirestore();
+      registrarLog(
+        "Editar gasto",
+        `Descrição antiga "${descAntiga}", valor antigo ${formatMoney(
+          valorAntigo
+        )}`
+      );
     }
 
     // -------------- UI: SELECTS, LISTAS, PARTICIPAÇÃO --------------
@@ -908,20 +868,13 @@
         });
 
       const table = div.querySelector("table");
-      if (table) {
-        makeTableRowsDraggable(
-          table,
-          pessoas,
-          () => {
-            atualizarListaPessoas();
-            atualizarSelectsPessoas();
-            construirTabelaParticipacao();
-            atualizarListaGastos();
-            atualizarListaGrupos();
-          },
-          "Reordenou a lista de pessoas."
-        );
-      }
+      makeTableRowsDraggable(table, pessoas, () => {
+        atualizarListaPessoas();
+        atualizarSelectsPessoas();
+        construirTabelaParticipacao();
+        atualizarListaGastos();
+        atualizarListaGrupos();
+      });
     }
 
     function atualizarListaRefeicoes() {
@@ -973,18 +926,10 @@
         });
 
       const table = div.querySelector("table");
-      if (table) {
-        makeTableRowsDraggable(
-          table,
-          refeicoes,
-          () => {
-            atualizarListaRefeicoes();
-            construirTabelaParticipacao();
-            atualizarInfoRefeicoesPorPessoa();
-          },
-          "Reordenou a lista de refeições."
-        );
-      }
+      makeTableRowsDraggable(table, refeicoes, () => {
+        atualizarListaRefeicoes();
+        construirTabelaParticipacao();
+      });
     }
 
     function atualizarListaGastos() {
@@ -1036,16 +981,9 @@
         });
 
       const table = div.querySelector("table");
-      if (table) {
-        makeTableRowsDraggable(
-          table,
-          gastos,
-          () => {
-            atualizarListaGastos();
-          },
-          "Reordenou a lista de gastos."
-        );
-      }
+      makeTableRowsDraggable(table, gastos, () => {
+        atualizarListaGastos();
+      });
     }
 
     function atualizarListaGrupos() {
@@ -1083,22 +1021,14 @@
         });
 
       const table = div.querySelector("table");
-      if (table) {
-        makeTableRowsDraggable(
-          table,
-          grupos,
-          () => {
-            atualizarListaGrupos();
-          },
-          "Reordenou os grupos de responsáveis."
-        );
-      }
+      makeTableRowsDraggable(table, grupos, () => {
+        atualizarListaGrupos();
+      });
     }
 
     // Info: quanto sai cada refeição por pessoa
     function atualizarInfoRefeicoesPorPessoa() {
       const div = document.getElementById("infoRefeicoesPorPessoa");
-      if (!div) return;
       if (refeicoes.length === 0) {
         div.textContent = "";
         return;
@@ -1124,8 +1054,6 @@
     // Tabela de participação (com botões por coluna)
     function construirTabelaParticipacao() {
       const wrapper = document.getElementById("tabelaParticipacaoWrapper");
-      if (!wrapper) return;
-
       if (pessoas.length === 0 || refeicoes.length === 0) {
         wrapper.innerHTML =
           "<p class='small'>Cadastre pelo menos uma pessoa e uma refeição para marcar as participações.</p>";
@@ -1173,27 +1101,17 @@
           const arr = participacao[refeicaoId];
           const idx = arr.indexOf(pessoaId);
 
-          const pessoa = pessoas.find(p => p.id === pessoaId);
-          const ref = refeicoes.find(r => r.id === refeicaoId);
-
-          if (this.checked && idx === -1) {
-            arr.push(pessoaId);
-            addLog(
-              `Marcou participação de "${pessoa ? pessoa.nome : "?"}" na refeição "${
-                ref ? ref.nome : "?"
-              }".`
-            );
-          } else if (!this.checked && idx !== -1) {
-            arr.splice(idx, 1);
-            addLog(
-              `Desmarcou participação de "${pessoa ? pessoa.nome : "?"}" na refeição "${
-                ref ? ref.nome : "?"
-              }".`
-            );
-          }
+          if (this.checked && idx === -1) arr.push(pessoaId);
+          else if (!this.checked && idx !== -1) arr.splice(idx, 1);
 
           atualizarInfoRefeicoesPorPessoa();
           salvarNoFirestore();
+          registrarLog(
+            "Alterar participação",
+            `Pessoa ID ${pessoaId} na refeição ID ${refeicaoId} ${
+              this.checked ? "MARCADA" : "DESMARCADA"
+            }`
+          );
         });
       });
 
@@ -1203,15 +1121,13 @@
         .forEach(btn => {
           btn.addEventListener("click", () => {
             const refeicaoId = parseInt(btn.getAttribute("data-refeicao"));
-            const ref = refeicoes.find(r => r.id === refeicaoId);
             participacao[refeicaoId] = pessoas.map(p => p.id);
             construirTabelaParticipacao();
-            addLog(
-              `Marcou todos os participantes para a refeição "${
-                ref ? ref.nome : "?"
-              }".`
-            );
             salvarNoFirestore();
+            registrarLog(
+              "Marcar todos em refeição",
+              `Refeição ID ${refeicaoId}`
+            );
           });
         });
 
@@ -1220,15 +1136,13 @@
         .forEach(btn => {
           btn.addEventListener("click", () => {
             const refeicaoId = parseInt(btn.getAttribute("data-refeicao"));
-            const ref = refeicoes.find(r => r.id === refeicaoId);
             participacao[refeicaoId] = [];
             construirTabelaParticipacao();
-            addLog(
-              `Desmarcou todos os participantes para a refeição "${
-                ref ? ref.nome : "?"
-              }".`
-            );
             salvarNoFirestore();
+            registrarLog(
+              "Desmarcar todos em refeição",
+              `Refeição ID ${refeicaoId}`
+            );
           });
         });
 
@@ -1320,8 +1234,8 @@
       atualizarListaPessoas();
       atualizarSelectsPessoas();
       construirTabelaParticipacao();
-      addLog(`Adicionou a pessoa "${nome}".`);
       salvarNoFirestore();
+      registrarLog("Adicionar pessoa", `Pessoa: ${nome}`);
     });
 
     document.getElementById("btnAddRefeicao").addEventListener("click", () => {
@@ -1343,11 +1257,8 @@
       document.getElementById("custoRefeicao").value = "";
       atualizarListaRefeicoes();
       construirTabelaParticipacao();
-      atualizarInfoRefeicoesPorPessoa();
-      addLog(
-        `Adicionou a refeição "${nome}" com custo de ${formatMoney(custo)}.`
-      );
       salvarNoFirestore();
+      registrarLog("Adicionar refeição", `Refeição: ${nome}, custo ${formatMoney(custo)}`);
     });
 
     document.getElementById("btnAddGasto").addEventListener("click", () => {
@@ -1367,18 +1278,16 @@
       }
 
       gastos.push({ pessoaId, descricao, valor });
-      const pessoa = pessoas.find(p => p.id === pessoaId);
-      const nomePessoa = pessoa ? pessoa.nome : "?";
-
       document.getElementById("descricaoGasto").value = "";
       document.getElementById("valorGasto").value = "";
       atualizarListaGastos();
-      addLog(
-        `Registrou um gasto de ${formatMoney(
-          valor
-        )} para ${nomePessoa} (descrição: "${descricao || "sem descrição"}").`
-      );
       salvarNoFirestore();
+
+      const pessoa = pessoas.find(p => p.id === pessoaId);
+      registrarLog(
+        "Adicionar gasto",
+        `Pessoa: ${pessoa ? pessoa.nome : "?"}, valor ${formatMoney(valor)}, desc "${descricao}"`
+      );
     });
 
     document.getElementById("btnAddGrupo").addEventListener("click", () => {
@@ -1408,15 +1317,14 @@
 
       grupos.push({ responsavelId, membroId });
       atualizarListaGrupos();
+      salvarNoFirestore();
 
       const resp = pessoas.find(p => p.id === responsavelId);
       const memb = pessoas.find(p => p.id === membroId);
-      addLog(
-        `Adicionou "${memb ? memb.nome : "?"}" como membro do grupo do responsável "${
-          resp ? resp.nome : "?"
-        }".`
+      registrarLog(
+        "Adicionar grupo",
+        `Responsável: ${resp ? resp.nome : "?"}, membro: ${memb ? memb.nome : "?"}`
       );
-      salvarNoFirestore();
     });
 
     // Global marcar/desmarcar todos
@@ -1429,8 +1337,8 @@
         participacao[r.id] = pessoas.map(p => p.id);
       });
       construirTabelaParticipacao();
-      addLog("Marcou todas as pessoas em todas as refeições.");
       salvarNoFirestore();
+      registrarLog("Marcar todos", "Todas as pessoas em todas as refeições.");
     });
 
     document
@@ -1441,8 +1349,8 @@
           participacao[r.id] = [];
         });
         construirTabelaParticipacao();
-        addLog("Desmarcou todas as pessoas em todas as refeições.");
         salvarNoFirestore();
+        registrarLog("Desmarcar todos", "Removidas todas as participações.");
       });
 
     // Cálculo com tabela detalhada
@@ -1562,8 +1470,7 @@
           if (sFinal > 0.009) {
             resumo += `Saldo final: tem a receber ${formatMoney(sFinal)}.`;
           } else if (sFinal < -0.009) {
-            resumo +=
-              "Saldo final: tem a pagar " + formatMoney(-sFinal) + ".";
+            resumo += "Saldo final: tem a pagar " + formatMoney(-sFinal) + ".";
           } else {
             resumo += "Saldo final: ficou zerado.";
           }
@@ -1591,12 +1498,14 @@
       html += "</tbody></table>";
       divResultado.innerHTML = html;
 
-      addLog("Executou o cálculo final de quanto cada um paga/recebe.");
-      salvarNoFirestore();
+      registrarLog("Calcular", "Recalculo das contas executado.");
     });
 
     // Exportar / importar arquivo
-    document.getElementById("btnExportar").addEventListener("click", exportarDados);
+    document.getElementById("btnExportar").addEventListener("click", () => {
+      exportarDados();
+    });
+
     document
       .getElementById("inputImportar")
       .addEventListener("change", e => {
@@ -1607,30 +1516,41 @@
         }
       });
 
-    // LOG: botão para exibir
-    document.getElementById("btnMostrarLogs").addEventListener("click", () => {
-      if (logs.length === 0) {
-        areaLogs.innerHTML = "Nenhuma ação registrada ainda.";
-        return;
-      }
-      let html = "<table><thead><tr><th>Horário</th><th>Usuário</th><th>Ação</th></tr></thead><tbody>";
-      logs.forEach(l => {
-        html += `<tr>
-          <td>${l.horario || ""}</td>
-          <td>${l.usuario || ""}</td>
-          <td>${l.acao || ""}</td>
-        </tr>`;
-      });
-      html += "</tbody></table>";
-      areaLogs.innerHTML = html;
-    });
+    // Botão para ver log
+    document.getElementById("btnVerLog").addEventListener("click", async () => {
+      const divLog = document.getElementById("areaLog");
+      divLog.textContent = "Carregando log...";
+      try {
+        const q = query(
+          collection(db, "logs"),
+          orderBy("createdAt", "asc")
+        );
+        const snap = await getDocs(q);
+        if (snap.empty) {
+          divLog.textContent = "Nenhum registro ainda.";
+          return;
+        }
 
-    // Estado inicial mínimo (antes de logar não mostra nada, mas evita erro)
-    atualizarListaPessoas();
-    atualizarListaRefeicoes();
-    atualizarListaGastos();
-    atualizarListaGrupos();
-    construirTabelaParticipacao();
+        let html = "<ul>";
+        snap.forEach(docSnap => {
+          const data = docSnap.data();
+          const nome = data.usuario || "(sem nome)";
+          const acao = data.acao || "";
+          const detalhes = data.detalhes || "";
+          let dataStr = "";
+          if (data.createdAt) {
+            const d = data.createdAt.toDate();
+            dataStr = d.toLocaleString("pt-BR");
+          }
+          html += `<li><strong>${dataStr}</strong> - ${nome}: ${acao} — ${detalhes}</li>`;
+        });
+        html += "</ul>";
+        divLog.innerHTML = html;
+      } catch (erro) {
+        console.error(erro);
+        divLog.textContent = "Erro ao carregar log.";
+      }
+    });
   </script>
 </body>
 </html>
