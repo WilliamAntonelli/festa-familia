@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Divisão de Gastos da Festa</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #f4f4f4;
+    }
+
+    h1 {
+      text-align: center;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    fieldset {
+      border: 1px solid #ccc;
+      margin-bottom: 20px;
+      padding: 15px;
+      background: #fff;
+      border-radius: 8px;
+    }
+
+    legend {
+      font-weight: bold;
+    }
+
+    label {
+      display: inline-block;
+      margin: 5px 0;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    select {
+      padding: 4px;
+      margin: 3px 0;
+    }
+
+    button {
+      padding: 6px 10px;
+      margin-top: 5px;
+      cursor: pointer;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 10px;
+      background: #fff;
+    }
+
+    table, th, td {
+      border: 1px solid #ccc;
+    }
+
+    th, td {
+      padding: 6px;
+      text-align: left;
+      font-size: 14px;
+    }
+
+    th {
+      background: #eaeaea;
+    }
+
+    .small {
+      font-size: 12px;
+      color: #555;
+    }
+
+    .resultado {
+      margin-top: 10px;
+    }
+
+    .positivo {
+      color: green;
+      font-weight: bold;
+    }
+
+    .negativo {
+      color: red;
+      font-weight: bold;
+    }
+
+    .info {
+      font-size: 13px;
+      color: #555;
+    }
+
+    .backup-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .backup-controls input[type="file"] {
+      margin-top: 5px;
+    }
+
+    .btn-small {
+      font-size: 11px;
+      padding: 2px 4px;
+      margin: 1px 1px 0 1px;
+      cursor: pointer;
+    }
+
+    tr[draggable="true"] {
+      cursor: move;
+    }
+
+    .participacao-actions {
+      margin-bottom: 8px;
+    }
+
+    .participacao-actions button {
+      margin-right: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 id="tituloPagina">Controle de Gastos da Festa em Família</h1>
+
+    <!-- TÍTULO EDITÁVEL DA FESTA -->
+    <fieldset>
+      <legend>Nome da Festa</legend>
+      <label>Título da festa:
+        <input type="text" id="tituloFesta" value="Controle de Gastos da Festa em Família">
+      </label>
+      <div class="small">Altere aqui o nome da festa. Ele muda o título acima e o nome da aba.</div>
+    </fieldset>
+
+    <!-- PESSOAS -->
+    <fieldset>
+      <legend>Pessoas</legend>
+      <label>Nome:
+        <input type="text" id="nomePessoa">
+      </label>
+      <button id="btnAddPessoa">Adicionar Pessoa</button>
+      <div id="listaPessoas" class="small"></div>
+    </fieldset>
+
+    <!-- REFEIÇÕES -->
+    <fieldset>
+      <legend>Refeições</legend>
+      <label>Nome da refeição:
+        <input type="text" id="nomeRefeicao">
+      </label>
+      <label>Custo total (R$):
+        <input type="number" id="custoRefeicao" step="0.01" min="0">
+      </label>
+      <button id="btnAddRefeicao">Adicionar Refeição</button>
+      <div id="listaRefeicoes" class="small"></div>
+    </fieldset>
+
+    <!-- PARTICIPAÇÃO NAS REFEIÇÕES -->
+    <fieldset>
+      <legend>Quem participou de qual refeição?</legend>
+      <p class="info">
+        Marque as caixas para indicar que a pessoa participou daquela refeição.
+        O custo de cada refeição será dividido igualmente entre os participantes.
+      </p>
+      <div class="participacao-actions">
+        <button id="btnMarcarTodos">Marcar todos (todas as refeições)</button>
+        <button id="btnDesmarcarTodos">Desmarcar todos (todas as refeições)</button>
+      </div>
+      <div id="tabelaParticipacaoWrapper"></div>
+      <div id="infoRefeicoesPorPessoa" class="small"></div>
+    </fieldset>
+
+    <!-- GASTOS / COMPRAS -->
+    <fieldset>
+      <legend>Gastos (Compras)</legend>
+      <p class="info">
+        Use esta seção para registrar quem gastou dinheiro comprando ingredientes ou qualquer coisa para a festa.
+      </p>
+      <label>Pessoa:
+        <select id="selectGastoPessoa"></select>
+      </label>
+      <label>Descrição:
+        <input type="text" id="descricaoGasto" placeholder="Ex: carne, refrigerante...">
+      </label>
+      <label>Valor (R$):
+        <input type="number" id="valorGasto" step="0.01" min="0">
+      </label>
+      <button id="btnAddGasto">Registrar Gasto</button>
+      <div id="listaGastos" class="small"></div>
+    </fieldset>
+
+    <!-- GRUPOS (RESPONSÁVEL PAGA PELOS OUTROS) -->
+    <fieldset>
+      <legend>Grupos (Responsável pelo Pagamento)</legend>
+      <p class="info">
+        Aqui você pode dizer, por exemplo, que o Pai paga pelas refeições da Esposa e dos Filhos.
+        Na conta final, o saldo de todos será somado ao responsável.
+      </p>
+      <label>Responsável:
+        <select id="selectResponsavel"></select>
+      </label>
+      <label>Membro do grupo:
+        <select id="selectMembro"></select>
+      </label>
+      <button id="btnAddGrupo">Adicionar ao grupo</button>
+      <div id="listaGrupos" class="small"></div>
+    </fieldset>
+
+    <!-- BACKUP / RESTAURAÇÃO -->
+    <fieldset>
+      <legend>Salvar / Carregar Arquivo de Dados</legend>
+      <p class="info">
+        Você pode baixar um arquivo <strong>.json</strong> com todos os cadastros e depois abrir esse arquivo em outro momento ou em outro computador.
+      </p>
+      <div class="backup-controls">
+        <button id="btnExportar">Exportar dados para arquivo (.json)</button>
+        <label>
+          Importar dados (.json):
+          <input type="file" id="inputImportar" accept="application/json">
+        </label>
+      </div>
+      <div id="statusBackup" class="small"></div>
+    </fieldset>
+
+    <!-- CÁLCULO FINAL -->
+    <fieldset>
+      <legend>Cálculo Final</legend>
+      <button id="btnCalcular">Calcular quanto cada um paga/recebe</button>
+      <div id="resultado" class="resultado"></div>
+    </fieldset>
+  </div>
+
+  <script>
+    // Dados em memória
+    const pessoas = [];       // { id, nome }
+    const refeicoes = [];     // { id, nome, custo }
+    const gastos = [];        // { pessoaId, descricao, valor }
+    const grupos = [];        // { responsavelId, membroId }
+    const participacao = {};  // mealId -> array de pessoaId
+
+    let pessoaIdSeq = 1;
+    let refeicaoIdSeq = 1;
+
+    function formatMoney(valor) {
+      return "R$ " + valor.toFixed(2).replace('.', ',');
+    }
+
+    // --------- TÍTULO EDITÁVEL ---------
+    const tituloPagina = document.getElementById("tituloPagina");
+    const tituloFestaInput = document.getElementById("tituloFesta");
+
+    tituloFestaInput.addEventListener("input", () => {
+      const t = tituloFestaInput.value.trim();
+      const texto = t || "Controle de Gastos da Festa em Família";
+      tituloPagina.textContent = texto;
+      document.title = texto;
+    });
+
+    // -------------- DRAG & DROP GENÉRICO --------------
+
+    function makeTableRowsDraggable(container, arrayRef, rebuildFn) {
+      const rows = container.querySelectorAll("tbody tr");
+      let dragStartIndex = null;
+
+      rows.forEach(row => {
+        row.setAttribute("draggable", "true");
+
+        row.addEventListener("dragstart", e => {
+          dragStartIndex = parseInt(row.dataset.index);
+          e.dataTransfer.effectAllowed = "move";
+        });
+
+        row.addEventListener("dragover", e => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+        });
+
+        row.addEventListener("drop", e => {
+          e.preventDefault();
+          const dropIndex = parseInt(row.dataset.index);
+          if (dragStartIndex === null || dropIndex === dragStartIndex) return;
+
+          const item = arrayRef.splice(dragStartIndex, 1)[0];
+          arrayRef.splice(dropIndex, 0, item);
+
+          dragStartIndex = null;
+          rebuildFn();
+        });
+      });
+    }
+
+    // -------------- EXPORTAÇÃO / IMPORTAÇÃO --------------
+
+    function getEstadoAtual() {
+      return { pessoas, refeicoes, gastos, grupos, participacao };
+    }
+
+    function exportarDados() {
+      const data = getEstadoAtual();
+      const json = JSON.stringify(data, null, 2);
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "festa_dados.json";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      document.getElementById("statusBackup").textContent =
+        "Arquivo exportado: festa_dados.json";
+    }
+
+    function importarDadosArquivo(arquivo) {
+      const status = document.getElementById("statusBackup");
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const texto = e.target.result;
+          const obj = JSON.parse(texto);
+
+          pessoas.length = 0;
+          refeicoes.length = 0;
+          gastos.length = 0;
+          grupos.length = 0;
+          for (const k in participacao) delete participacao[k];
+
+          if (Array.isArray(obj.pessoas)) {
+            obj.pessoas.forEach(p => pessoas.push({ id: p.id, nome: p.nome }));
+          }
+          if (Array.isArray(obj.refeicoes)) {
+            obj.refeicoes.forEach(r => refeicoes.push({
+              id: r.id,
+              nome: r.nome,
+              custo: Number(r.custo) || 0
+            }));
+          }
+          if (Array.isArray(obj.gastos)) {
+            obj.gastos.forEach(g => gastos.push({
+              pessoaId: g.pessoaId,
+              descricao: g.descricao,
+              valor: Number(g.valor) || 0
+            }));
+          }
+          if (Array.isArray(obj.grupos)) {
+            obj.grupos.forEach(g => grupos.push({
+              responsavelId: g.responsavelId,
+              membroId: g.membroId
+            }));
+          }
+          if (obj.participacao && typeof obj.participacao === "object") {
+            for (const key in obj.participacao) {
+              participacao[key] = Array.isArray(obj.participacao[key])
+                ? obj.participacao[key].map(Number)
+                : [];
+            }
+          }
+
+          const maxPessoaId = pessoas.reduce((max, p) => Math.max(max, p.id), 0);
+          const maxRefeicaoId = refeicoes.reduce((max, r) => Math.max(max, r.id), 0);
+          pessoaIdSeq = maxPessoaId + 1;
+          refeicaoIdSeq = maxRefeicaoId + 1;
+
+          atualizarListaPessoas();
+          atualizarSelectsPessoas();
+          atualizarListaRefeicoes();
+          atualizarListaGastos();
+          atualizarListaGrupos();
+          construirTabelaParticipacao();
+
+          status.textContent = "Dados importados com sucesso.";
+        } catch (erro) {
+          console.error(erro);
+          status.textContent = "Erro ao importar arquivo. Verifique se é um JSON válido.";
+        }
+      };
+      reader.onerror = () => {
+        status.textContent = "Erro ao ler o arquivo.";
+      };
+      reader.readAsText(arquivo, "utf-8");
+    }
+
+    // -------------- FUNÇÕES DE EXCLUSÃO --------------
+
+    function excluirPessoa(id) {
+      const idx = pessoas.findIndex(p => p.id === id);
+      if (idx !== -1) pessoas.splice(idx, 1);
+
+      for (let i = gastos.length - 1; i >= 0; i--) {
+        if (gastos[i].pessoaId === id) gastos.splice(i, 1);
+      }
+
+      for (let i = grupos.length - 1; i >= 0; i--) {
+        if (grupos[i].responsavelId === id || grupos[i].membroId === id) {
+          grupos.splice(i, 1);
+        }
+      }
+
+      for (const rId in participacao) {
+        const arr = participacao[rId];
+        const i = arr.indexOf(id);
+        if (i !== -1) arr.splice(i, 1);
+      }
+
+      atualizarListaPessoas();
+      atualizarSelectsPessoas();
+      atualizarListaGastos();
+      atualizarListaGrupos();
+      atualizarListaRefeicoes();
+      construirTabelaParticipacao();
+    }
+
+    function excluirRefeicao(id) {
+      const idx = refeicoes.findIndex(r => r.id === id);
+      if (idx !== -1) refeicoes.splice(idx, 1);
+      delete participacao[id];
+      atualizarListaRefeicoes();
+      construirTabelaParticipacao();
+    }
+
+    function excluirGasto(index) {
+      if (index >= 0 && index < gastos.length) gastos.splice(index, 1);
+      atualizarListaGastos();
+    }
+
+    function excluirGrupo(index) {
+      if (index >= 0 && index < grupos.length) grupos.splice(index, 1);
+      atualizarListaGrupos();
+    }
+
+    // -------------- FUNÇÕES DE EDIÇÃO --------------
+
+    function editarPessoa(id) {
+      const p = pessoas.find(p => p.id === id);
+      if (!p) return;
+      const novoNome = prompt("Novo nome da pessoa:", p.nome);
+      if (novoNome && novoNome.trim()) {
+        p.nome = novoNome.trim();
+        atualizarListaPessoas();
+        atualizarSelectsPessoas();
+        construirTabelaParticipacao();
+        atualizarListaGastos();
+        atualizarListaGrupos();
+      }
+    }
+
+    function editarRefeicao(id) {
+      const r = refeicoes.find(r => r.id === id);
+      if (!r) return;
+      const novoNome = prompt("Novo nome da refeição (deixe em branco para manter):", r.nome);
+      if (novoNome !== null && novoNome.trim() !== "") {
+        r.nome = novoNome.trim();
+      }
+      const novoCustoStr = prompt(
+        "Novo custo total da refeição (R$). Deixe em branco para manter:",
+        r.custo.toString().replace('.', ',')
+      );
+      if (novoCustoStr !== null && novoCustoStr.trim() !== "") {
+        const numStr = novoCustoStr.replace(',', '.');
+        const valor = parseFloat(numStr);
+        if (!isNaN(valor) && valor >= 0) {
+          r.custo = valor;
+        } else {
+          alert("Valor inválido, custo mantido.");
+        }
+      }
+      atualizarListaRefeicoes();
+      construirTabelaParticipacao();
+    }
+
+    function editarGasto(index) {
+      const g = gastos[index];
+      if (!g) return;
+
+      const novaDesc = prompt(
+        "Nova descrição (deixe em branco para manter):",
+        g.descricao || ""
+      );
+      if (novaDesc !== null) {
+        if (novaDesc.trim() !== "") g.descricao = novaDesc.trim();
+      }
+
+      const valorStr = prompt(
+        "Novo valor (R$). Deixe em branco para manter:",
+        g.valor.toString().replace('.', ',')
+      );
+      if (valorStr !== null && valorStr.trim() !== "") {
+        const numStr = valorStr.replace(',', '.');
+        const val = parseFloat(numStr);
+        if (!isNaN(val) && val > 0) {
+          g.valor = val;
+        } else {
+          alert("Valor inválido, valor mantido.");
+        }
+      }
+
+      atualizarListaGastos();
+    }
+
+    // -------------- UI: SELECTS, LISTAS, PARTICIPAÇÃO --------------
+
+    function atualizarSelectsPessoas() {
+      const selectGastoPessoa = document.getElementById("selectGastoPessoa");
+      const selectResponsavel = document.getElementById("selectResponsavel");
+      const selectMembro = document.getElementById("selectMembro");
+
+      [selectGastoPessoa, selectResponsavel, selectMembro].forEach(sel => sel.innerHTML = "");
+
+      pessoas.forEach(p => {
+        const opt1 = document.createElement("option");
+        opt1.value = p.id;
+        opt1.textContent = p.nome;
+        selectGastoPessoa.appendChild(opt1);
+
+        const opt2 = document.createElement("option");
+        opt2.value = p.id;
+        opt2.textContent = p.nome;
+        selectResponsavel.appendChild(opt2);
+
+        const opt3 = document.createElement("option");
+        opt3.value = p.id;
+        opt3.textContent = p.nome;
+        selectMembro.appendChild(opt3);
+      });
+    }
+
+    function atualizarListaPessoas() {
+      const div = document.getElementById("listaPessoas");
+      if (pessoas.length === 0) {
+        div.textContent = "Nenhuma pessoa cadastrada ainda.";
+        return;
+      }
+
+      let html = "<table><thead><tr><th>Nome</th><th>Ações</th></tr></thead><tbody>";
+      pessoas.forEach((p, index) => {
+        html += `<tr data-index="${index}">
+          <td>${p.nome}</td>
+          <td>
+            <button class="btn-small" data-acao="editar-pessoa" data-id="${p.id}">Editar</button>
+            <button class="btn-small" data-acao="excluir-pessoa" data-id="${p.id}">Excluir</button>
+          </td>
+        </tr>`;
+      });
+      html += "</tbody></table>";
+      div.innerHTML = html;
+
+      div.querySelectorAll("button[data-acao='excluir-pessoa']").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const id = parseInt(btn.getAttribute("data-id"));
+          if (confirm("Excluir essa pessoa e todos os dados relacionados?")) {
+            excluirPessoa(id);
+          }
+        });
+      });
+
+      div.querySelectorAll("button[data-acao='editar-pessoa']").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const id = parseInt(btn.getAttribute("data-id"));
+          editarPessoa(id);
+        });
+      });
+
+      const table = div.querySelector("table");
+      makeTableRowsDraggable(table, pessoas, () => {
+        atualizarListaPessoas();
+        atualizarSelectsPessoas();
+        construirTabelaParticipacao();
+        atualizarListaGastos();
+        atualizarListaGrupos();
+      });
+    }
+
+    function atualizarListaRefeicoes() {
+      const div = document.getElementById("listaRefeicoes");
+      if (refeicoes.length === 0) {
+        div.textContent = "Nenhuma refeição cadastrada ainda.";
+        return;
+      }
+
+      let total = 0;
+      let html = "<table><thead><tr><th>Refeição</th><th>Custo</th><th>Ações</th></tr></thead><tbody>";
+      refeicoes.forEach((r, index) => {
+        total += r.custo;
+        html += `<tr data-index="${index}">
+          <td>${r.nome}</td>
+          <td>${formatMoney(r.custo)}</td>
+          <td>
+            <button class="btn-small" data-acao="editar-refeicao" data-id="${r.id}">Editar</button>
+            <button class="btn-small" data-acao="excluir-refeicao" data-id="${r.id}">Excluir</button>
+          </td>
+        </tr>`;
+      });
+      html += `</tbody></table><br><strong>Total de todas as refeições: ${formatMoney(total)}</strong>`;
+      div.innerHTML = html;
+
+      div.querySelectorAll("button[data-acao='excluir-refeicao']").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const id = parseInt(btn.getAttribute("data-id"));
+          if (confirm("Excluir essa refeição e as participações ligadas a ela?")) {
+            excluirRefeicao(id);
+          }
+        });
+      });
+
+      div.querySelectorAll("button[data-acao='editar-refeicao']").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const id = parseInt(btn.getAttribute("data-id"));
+          editarRefeicao(id);
+        });
+      });
+
+      const table = div.querySelector("table");
+      makeTableRowsDraggable(table, refeicoes, () => {
+        atualizarListaRefeicoes();
+        construirTabelaParticipacao();
+      });
+    }
+
+    function atualizarListaGastos() {
+      const div = document.getElementById("listaGastos");
+      if (gastos.length === 0) {
+        div.textContent = "Nenhum gasto registrado ainda.";
+        return;
+      }
+
+      let total = 0;
+      let html = "<table><thead><tr><th>Pessoa</th><th>Descrição</th><th>Valor</th><th>Ações</th></tr></thead><tbody>";
+      gastos.forEach((g, index) => {
+        const pessoa = pessoas.find(p => p.id === g.pessoaId);
+        total += g.valor;
+        html += `<tr data-index="${index}">
+          <td>${pessoa ? pessoa.nome : "?"}</td>
+          <td>${g.descricao || "sem descrição"}</td>
+          <td>${formatMoney(g.valor)}</td>
+          <td>
+            <button class="btn-small" data-acao="editar-gasto" data-index="${index}">Editar</button>
+            <button class="btn-small" data-acao="excluir-gasto" data-index="${index}">Excluir</button>
+          </td>
+        </tr>`;
+      });
+      html += `</tbody></table><br><strong>Total de todos os gastos: ${formatMoney(total)}</strong>`;
+      div.innerHTML = html;
+
+      div.querySelectorAll("button[data-acao='excluir-gasto']").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const index = parseInt(btn.getAttribute("data-index"));
+          if (confirm("Excluir esse gasto?")) {
+            excluirGasto(index);
+          }
+        });
+      });
+
+      div.querySelectorAll("button[data-acao='editar-gasto']").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const index = parseInt(btn.getAttribute("data-index"));
+          editarGasto(index);
+        });
+      });
+
+      const table = div.querySelector("table");
+      makeTableRowsDraggable(table, gastos, () => {
+        atualizarListaGastos();
+      });
+    }
+
+    function atualizarListaGrupos() {
+      const div = document.getElementById("listaGrupos");
+      if (grupos.length === 0) {
+        div.textContent = "Nenhum grupo definido ainda.";
+        return;
+      }
+
+      let html = "<table><thead><tr><th>Membro</th><th>Responsável</th><th>Ações</th></tr></thead><tbody>";
+      grupos.forEach((g, index) => {
+        const resp = pessoas.find(p => p.id === g.responsavelId);
+        const memb = pessoas.find(p => p.id === g.membroId);
+        html += `<tr data-index="${index}">
+          <td>${memb ? memb.nome : "?"}</td>
+          <td>${resp ? resp.nome : "?"}</td>
+          <td>
+            <button class="btn-small" data-acao="excluir-grupo" data-index="${index}">Excluir</button>
+          </td>
+        </tr>`;
+      });
+      html += "</tbody></table>";
+      div.innerHTML = html;
+
+      div.querySelectorAll("button[data-acao='excluir-grupo']").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const index = parseInt(btn.getAttribute("data-index"));
+          if (confirm("Excluir esse agrupamento?")) {
+            excluirGrupo(index);
+          }
+        });
+      });
+
+      const table = div.querySelector("table");
+      makeTableRowsDraggable(table, grupos, () => {
+        atualizarListaGrupos();
+      });
+    }
+
+    // Info: quanto sai cada refeição por pessoa
+    function atualizarInfoRefeicoesPorPessoa() {
+      const div = document.getElementById("infoRefeicoesPorPessoa");
+      if (refeicoes.length === 0) {
+        div.textContent = "";
+        return;
+      }
+      let html = "<strong>Resumo das refeições por pessoa:</strong><br>";
+      refeicoes.forEach(r => {
+        const part = participacao[r.id] || [];
+        const n = part.length;
+        if (n === 0) {
+          html += `"${r.nome}" → ${formatMoney(r.custo)} ao todo, ainda sem participantes.<br>`;
+        } else {
+          const cota = r.custo / n;
+          html += `"${r.nome}" → ${formatMoney(r.custo)} ao todo, ${n} participante(s) → ${formatMoney(cota)} por pessoa.<br>`;
+        }
+      });
+      div.innerHTML = html;
+    }
+
+    // Tabela de participação (com botões por coluna)
+    function construirTabelaParticipacao() {
+      const wrapper = document.getElementById("tabelaParticipacaoWrapper");
+      if (pessoas.length === 0 || refeicoes.length === 0) {
+        wrapper.innerHTML = "<p class='small'>Cadastre pelo menos uma pessoa e uma refeição para marcar as participações.</p>";
+        document.getElementById("infoRefeicoesPorPessoa").textContent = "";
+        return;
+      }
+
+      let html = "<table><thead><tr><th>Pessoa</th>";
+      refeicoes.forEach(r => {
+        html += `<th>
+          ${r.nome}<br>
+          <span class="small">${formatMoney(r.custo)}</span><br>
+          <button class="btn-small" data-acao="mark-col" data-refeicao="${r.id}">✓</button>
+          <button class="btn-small" data-acao="unmark-col" data-refeicao="${r.id}">✕</button>
+        </th>`;
+      });
+      html += "</tr></thead><tbody>";
+
+      pessoas.forEach(p => {
+        html += `<tr><td>${p.nome}</td>`;
+        refeicoes.forEach(r => {
+          const jaParticipa = participacao[r.id] && participacao[r.id].includes(p.id);
+          html += `<td style="text-align:center">
+            <input type="checkbox"
+                   data-pessoa="${p.id}"
+                   data-refeicao="${r.id}"
+                   ${jaParticipa ? "checked" : ""}>
+          </td>`;
+        });
+        html += "</tr>";
+      });
+
+      html += "</tbody></table>";
+      wrapper.innerHTML = html;
+
+      // Checkboxes
+      const checkboxes = wrapper.querySelectorAll("input[type='checkbox']");
+      checkboxes.forEach(chk => {
+        chk.addEventListener("change", function() {
+          const pessoaId = parseInt(this.getAttribute("data-pessoa"));
+          const refeicaoId = parseInt(this.getAttribute("data-refeicao"));
+
+          if (!participacao[refeicaoId]) participacao[refeicaoId] = [];
+          const arr = participacao[refeicaoId];
+          const idx = arr.indexOf(pessoaId);
+
+          if (this.checked && idx === -1) arr.push(pessoaId);
+          else if (!this.checked && idx !== -1) arr.splice(idx, 1);
+
+          atualizarInfoRefeicoesPorPessoa();
+        });
+      });
+
+      // Botões por coluna (marcar/desmarcar só aquela refeição)
+      wrapper.querySelectorAll("button[data-acao='mark-col']").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const refeicaoId = parseInt(btn.getAttribute("data-refeicao"));
+          participacao[refeicaoId] = pessoas.map(p => p.id);
+          construirTabelaParticipacao();
+        });
+      });
+
+      wrapper.querySelectorAll("button[data-acao='unmark-col']").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const refeicaoId = parseInt(btn.getAttribute("data-refeicao"));
+          participacao[refeicaoId] = [];
+          construirTabelaParticipacao();
+        });
+      });
+
+      atualizarInfoRefeicoesPorPessoa();
+    }
+
+    // -------------- CÁLCULO PRINCIPAL --------------
+
+    function calcularTudo() {
+      if (pessoas.length === 0 || refeicoes.length === 0) {
+        return null;
+      }
+
+      const devePagar = {};
+      const gastou = {};
+      const saldoIndividual = {};
+      const saldoFinal = {};
+      const detalhesRefeicoesPorPessoa = {};
+      const totalRefeicoesPorPessoa = {};
+
+      pessoas.forEach(p => {
+        devePagar[p.id] = 0;
+        gastou[p.id] = 0;
+        saldoIndividual[p.id] = 0;
+        saldoFinal[p.id] = 0;
+        detalhesRefeicoesPorPessoa[p.id] = [];
+        totalRefeicoesPorPessoa[p.id] = 0;
+      });
+
+      // Refeições
+      refeicoes.forEach(r => {
+        const participantes = participacao[r.id] || [];
+        const n = participantes.length;
+        if (n === 0) return;
+
+        const cota = r.custo / n;
+        participantes.forEach(pId => {
+          devePagar[pId] += cota;
+          detalhesRefeicoesPorPessoa[pId].push({
+            refeicaoId: r.id,
+            valor: cota
+          });
+          totalRefeicoesPorPessoa[pId] += cota;
+        });
+      });
+
+      // Gastos
+      gastos.forEach(g => {
+        if (gastou[g.pessoaId] === undefined) gastou[g.pessoaId] = 0;
+        gastou[g.pessoaId] += g.valor;
+      });
+      pessoas.forEach(p => {
+        if (gastou[p.id] === undefined) gastou[p.id] = 0;
+      });
+
+      // Saldo individual (sem grupos)
+      pessoas.forEach(p => {
+        saldoIndividual[p.id] = gastou[p.id] - devePagar[p.id];
+        saldoFinal[p.id] = saldoIndividual[p.id];
+      });
+
+      // Aplicar grupos (somar membros no responsável)
+      grupos.forEach(g => {
+        const rId = g.responsavelId;
+        const mId = g.membroId;
+        if (rId === mId) return;
+        saldoFinal[rId] += saldoFinal[mId];
+        saldoFinal[mId] = 0;
+      });
+
+      return {
+        devePagar,
+        gastou,
+        saldoIndividual,
+        saldoFinal,
+        detalhesRefeicoesPorPessoa,
+        totalRefeicoesPorPessoa
+      };
+    }
+
+    // -------------- EVENTOS PRINCIPAIS --------------
+
+    document.getElementById("btnAddPessoa").addEventListener("click", () => {
+      const nome = document.getElementById("nomePessoa").value.trim();
+      if (!nome) {
+        alert("Digite o nome da pessoa.");
+        return;
+      }
+      pessoas.push({ id: pessoaIdSeq++, nome });
+      document.getElementById("nomePessoa").value = "";
+      atualizarListaPessoas();
+      atualizarSelectsPessoas();
+      construirTabelaParticipacao();
+    });
+
+    document.getElementById("btnAddRefeicao").addEventListener("click", () => {
+      const nome = document.getElementById("nomeRefeicao").value.trim();
+      const custoStr = document.getElementById("custoRefeicao").value;
+      const custo = parseFloat(custoStr);
+
+      if (!nome) {
+        alert("Digite o nome da refeição.");
+        return;
+      }
+      if (isNaN(custo) || custo < 0) {
+        alert("Digite um custo válido para a refeição.");
+        return;
+      }
+
+      refeicoes.push({ id: refeicaoIdSeq++, nome, custo });
+      document.getElementById("nomeRefeicao").value = "";
+      document.getElementById("custoRefeicao").value = "";
+      atualizarListaRefeicoes();
+      construirTabelaParticipacao();
+    });
+
+    document.getElementById("btnAddGasto").addEventListener("click", () => {
+      if (pessoas.length === 0) {
+        alert("Cadastre pelo menos uma pessoa antes de registrar gastos.");
+        return;
+      }
+      const select = document.getElementById("selectGastoPessoa");
+      const pessoaId = parseInt(select.value);
+      const descricao = document.getElementById("descricaoGasto").value.trim();
+      const valorStr = document.getElementById("valorGasto").value;
+      const valor = parseFloat(valorStr);
+
+      if (isNaN(valor) || valor <= 0) {
+        alert("Digite um valor de gasto válido.");
+        return;
+      }
+
+      gastos.push({ pessoaId, descricao, valor });
+      document.getElementById("descricaoGasto").value = "";
+      document.getElementById("valorGasto").value = "";
+      atualizarListaGastos();
+    });
+
+    document.getElementById("btnAddGrupo").addEventListener("click", () => {
+      if (pessoas.length < 2) {
+        alert("É preciso ter pelo menos duas pessoas para criar um grupo.");
+        return;
+      }
+      const responsavelId = parseInt(document.getElementById("selectResponsavel").value);
+      const membroId = parseInt(document.getElementById("selectMembro").value);
+
+      if (responsavelId === membroId) {
+        alert("Responsável e membro não podem ser a mesma pessoa.");
+        return;
+      }
+
+      const jaExiste = grupos.some(g => g.responsavelId === responsavelId && g.membroId === membroId);
+      if (jaExiste) {
+        alert("Esse membro já está nesse grupo.");
+        return;
+      }
+
+      grupos.push({ responsavelId, membroId });
+      atualizarListaGrupos();
+    });
+
+    // Global marcar/desmarcar todos
+    document.getElementById("btnMarcarTodos").addEventListener("click", () => {
+      if (pessoas.length === 0 || refeicoes.length === 0) {
+        alert("Cadastre pessoas e refeições primeiro.");
+        return;
+      }
+      refeicoes.forEach(r => {
+        participacao[r.id] = pessoas.map(p => p.id);
+      });
+      construirTabelaParticipacao();
+    });
+
+    document.getElementById("btnDesmarcarTodos").addEventListener("click", () => {
+      if (refeicoes.length === 0) return;
+      refeicoes.forEach(r => {
+        participacao[r.id] = [];
+      });
+      construirTabelaParticipacao();
+    });
+
+    // Cálculo com tabela detalhada
+    document.getElementById("btnCalcular").addEventListener("click", () => {
+      const divResultado = document.getElementById("resultado");
+
+      const calc = calcularTudo();
+      if (!calc) {
+        divResultado.innerHTML = "<p class='small'>Cadastre pelo menos uma pessoa e uma refeição para calcular.</p>";
+        return;
+      }
+
+      const {
+        devePagar,
+        gastou,
+        saldoIndividual,
+        saldoFinal,
+        detalhesRefeicoesPorPessoa,
+        totalRefeicoesPorPessoa
+      } = calc;
+
+      let html = "<table><thead><tr>" +
+                 "<th>Pessoa</th>" +
+                 "<th>Deveria pagar (refeições)</th>" +
+                 "<th>Gastou (compras)</th>" +
+                 "<th>Saldo</th>" +
+                 "<th>Situação + Detalhamento</th>" +
+                 "</tr></thead><tbody>";
+
+      pessoas.forEach(p => {
+        const d = devePagar[p.id] || 0;
+        const g = gastou[p.id] || 0;
+        const sFinal = saldoFinal[p.id] || 0;
+        const sIndiv = saldoIndividual[p.id] || 0;
+
+        let situacao = "";
+        let classe = "";
+
+        if (sFinal > 0.009) {
+          situacao = `Deve receber ${formatMoney(sFinal)}`;
+          classe = "positivo";
+        } else if (sFinal < -0.009) {
+          situacao = `Deve pagar ${formatMoney(-sFinal)}`;
+          classe = "negativo";
+        } else {
+          situacao = "Equilibrado (não paga nem recebe)";
+        }
+
+        const detalhes = detalhesRefeicoesPorPessoa[p.id] || [];
+        let textoRefeicoes;
+        if (detalhes.length === 0) {
+          textoRefeicoes = "Não participou de nenhuma refeição.";
+        } else {
+          const partes = detalhes.map(detalhe => {
+            const ref = refeicoes.find(r => r.id === detalhe.refeicaoId);
+            const nomeRef = ref ? ref.nome : `Refeição #${detalhe.refeicaoId}`;
+            return `${formatMoney(detalhe.valor)} de "${nomeRef}"`;
+          });
+          textoRefeicoes = partes.join(" + ");
+        }
+        const totalRef = totalRefeicoesPorPessoa[p.id] || 0;
+
+        let resumo = `Refeições: ${textoRefeicoes} → total das refeições: ${formatMoney(totalRef)}. ` +
+                     `Gastou em compras: ${formatMoney(g)}. `;
+
+        if (sIndiv > 0.009) {
+          resumo += `Saldo individual (sem grupos): tem a receber ${formatMoney(sIndiv)}. `;
+        } else if (sIndiv < -0.009) {
+          resumo += `Saldo individual (sem grupos): tem a pagar ${formatMoney(-sIndiv)}. `;
+        } else {
+          resumo += "Saldo individual (sem grupos): ficou zerado. ";
+        }
+
+        const meusMembros = grupos
+          .filter(gp => gp.responsavelId === p.id)
+          .map(gp => gp.membroId);
+
+        if (meusMembros.length > 0) {
+          const partesMembros = meusMembros.map(idM => {
+            const pessoaM = pessoas.find(x => x.id === idM);
+            const sM = saldoIndividual[idM] || 0;
+            const nomeM = pessoaM ? pessoaM.nome : `Pessoa #${idM}`;
+            if (sM > 0.009) {
+              return `${nomeM}: tem a receber ${formatMoney(sM)}`;
+            } else if (sM < -0.009) {
+              return `${nomeM}: tem a pagar ${formatMoney(-sM)}`;
+            } else {
+              return `${nomeM}: saldo zerado`;
+            }
+          });
+          resumo += `Inclui também os saldos de: ${partesMembros.join("; ")}. `;
+        }
+
+        if (meusMembros.length > 0) {
+          if (sFinal > 0.009) {
+            resumo += `Saldo final do grupo (responsável ${p.nome}): tem a receber ${formatMoney(sFinal)}.`;
+          } else if (sFinal < -0.009) {
+            resumo += `Saldo final do grupo (responsável ${p.nome}): tem a pagar ${formatMoney(-sFinal)}.`;
+          } else {
+            resumo += `Saldo final do grupo (responsável ${p.nome}): ficou zerado.`;
+          }
+        } else {
+          if (sFinal > 0.009) {
+            resumo += `Saldo final: tem a receber ${formatMoney(sFinal)}.`;
+          } else if (sFinal < -0.009) {
+            resumo += `Saldo final: tem a pagar ${formatMoney(-sFinal)}.`;
+          } else {
+            resumo += "Saldo final: ficou zerado.";
+          }
+        }
+
+        const ehMembro = grupos.some(gp => gp.membroId === p.id);
+        if (ehMembro) {
+          const resp = grupos.find(gp => gp.membroId === p.id);
+          const respPessoa = pessoas.find(x => x.id === resp.responsavelId);
+          resumo += ` (Saldo individual considerado no responsável: ${respPessoa ? respPessoa.nome : "?"})`;
+        }
+
+        html += "<tr>" +
+          `<td>${p.nome}</td>` +
+          `<td>${formatMoney(d)}</td>` +
+          `<td>${formatMoney(g)}</td>` +
+          `<td class="${classe}">${formatMoney(sFinal)}</td>` +
+          `<td>${situacao}<br><span class="small">${resumo}</span></td>` +
+          "</tr>";
+      });
+
+      html += "</tbody></table>";
+      divResultado.innerHTML = html;
+    });
+
+    // Exportar / importar
+    document.getElementById("btnExportar").addEventListener("click", exportarDados);
+    document.getElementById("inputImportar").addEventListener("change", (e) => {
+      const arquivo = e.target.files[0];
+      if (arquivo) {
+        importarDadosArquivo(arquivo);
+        e.target.value = "";
+      }
+    });
+
+    // Estado inicial
+    atualizarListaPessoas();
+    atualizarListaRefeicoes();
+    atualizarListaGastos();
+    atualizarListaGrupos();
+    construirTabelaParticipacao();
+  </script>
+</body>
+</html>
