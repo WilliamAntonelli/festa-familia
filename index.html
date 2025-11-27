@@ -155,19 +155,15 @@
         Informe seu nome e a senha combinada da família.
       </div>
 
-      <hr>
-      <div class="small"><strong>Mudança de senha de entrada</strong></div>
-      <label>Senha mestra:
-        <input type="password" id="senhaMestra">
-      </label>
-      <button id="btnValidarMestra">Liberar troca</button>
-
-      <div id="areaTrocaSenha" style="display:none; margin-top:5px;">
+      <!-- ÁREA ESPECIAL DE TROCA DE SENHA (SÓ APARECE PARA WilliamAntonelli + 5048558) -->
+      <div id="areaTrocaSenhaLogin" style="display:none; margin-top:10px;">
+        <hr>
+        <div class="small"><strong>Alterar senha de entrada da família (modo administrador)</strong></div>
         <label>Nova senha da família:
-          <input type="password" id="novaSenhaFamilia">
+          <input type="password" id="novaSenhaFamiliaLogin">
         </label>
-        <button id="btnSalvarNovaSenha">Salvar nova senha</button>
-        <div id="statusTrocaSenha" class="small"></div>
+        <button id="btnSalvarNovaSenhaLogin">Salvar nova senha</button>
+        <div id="statusTrocaSenhaLogin" class="small"></div>
       </div>
     </fieldset>
 
@@ -278,7 +274,7 @@
         <p class="info">
           Aqui você pode ver tudo o que foi feito (quem adicionou pessoa, refeição, marcou participação, etc.).
         </p>
-        <button id="btnVerLog">Ver log completo</button>
+        <button id="btnVerLog">Log</button>
         <div id="areaLog" class="small" style="margin-top: 10px;"></div>
       </fieldset>
 
@@ -338,7 +334,8 @@
     const festaDocRef = doc(db, "festas", "festa-principal");
 
     // --------- LOGIN E SENHAS ---------
-    const SENHA_MESTRA = "5048558";
+    const ADMIN_NOME = "WilliamAntonelli";
+    const SENHA_MESTRA = "5048558"; // nunca muda
     let senhaFamiliaAtual = "salvador1234"; // começa com essa, mas pode ser alterada e salva
 
     let usuarioAtual = null;
@@ -349,11 +346,11 @@
     const loginSenhaInput = document.getElementById("loginSenha");
     const loginStatus = document.getElementById("loginStatus");
 
-    const senhaMestraInput = document.getElementById("senhaMestra");
-    const btnValidarMestra = document.getElementById("btnValidarMestra");
-    const areaTrocaSenha = document.getElementById("areaTrocaSenha");
-    const novaSenhaFamiliaInput = document.getElementById("novaSenhaFamilia");
-    const statusTrocaSenha = document.getElementById("statusTrocaSenha");
+    // área especial de troca de senha via admin
+    const areaTrocaSenhaLogin = document.getElementById("areaTrocaSenhaLogin");
+    const novaSenhaFamiliaLoginInput = document.getElementById("novaSenhaFamiliaLogin");
+    const statusTrocaSenhaLogin = document.getElementById("statusTrocaSenhaLogin");
+    const btnSalvarNovaSenhaLogin = document.getElementById("btnSalvarNovaSenhaLogin");
 
     document.getElementById("btnLogin").addEventListener("click", async () => {
       const nome = loginNomeInput.value.trim();
@@ -364,6 +361,17 @@
         return;
       }
 
+      // MODO ADMINISTRADOR: nome + senha mestre
+      if (nome === ADMIN_NOME && senha === SENHA_MESTRA) {
+        usuarioAtual = nome;
+        areaTrocaSenhaLogin.style.display = "block";
+        loginStatus.textContent =
+          "Modo administrador: altere a senha de entrada da família abaixo.";
+        await registrarLog("Login admin", "Administrador abriu tela de alteração de senha da família.");
+        return;
+      }
+
+      // LOGIN NORMAL: qualquer nome + senha da família atual
       if (senha !== senhaFamiliaAtual) {
         loginStatus.textContent = "Senha incorreta. Tente novamente.";
         return;
@@ -379,34 +387,19 @@
       await registrarLog("Login", "Usuário entrou no sistema.");
     });
 
-    // Validação da senha mestra para liberar troca
-    btnValidarMestra.addEventListener("click", () => {
-      const val = senhaMestraInput.value;
-      if (val === SENHA_MESTRA) {
-        areaTrocaSenha.style.display = "block";
-        statusTrocaSenha.textContent =
-          "Senha mestra correta. Digite a nova senha de entrada.";
-      } else {
-        areaTrocaSenha.style.display = "none";
-        statusTrocaSenha.textContent = "Senha mestra incorreta.";
-      }
-    });
-
-    // Salvar nova senha de entrada
-    document.getElementById("btnSalvarNovaSenha").addEventListener("click", () => {
-      const nova = novaSenhaFamiliaInput.value.trim();
+    // Salvar nova senha de entrada (administrador)
+    btnSalvarNovaSenhaLogin.addEventListener("click", async () => {
+      const nova = novaSenhaFamiliaLoginInput.value.trim();
       if (!nova) {
-        statusTrocaSenha.textContent = "Digite uma nova senha válida.";
+        statusTrocaSenhaLogin.textContent = "Digite uma nova senha válida.";
         return;
       }
       senhaFamiliaAtual = nova;
-      novaSenhaFamiliaInput.value = "";
-      senhaMestraInput.value = "";
-      areaTrocaSenha.style.display = "none";
-      statusTrocaSenha.textContent = "Senha de entrada alterada com sucesso.";
+      novaSenhaFamiliaLoginInput.value = "";
+      statusTrocaSenhaLogin.textContent = "Senha de entrada alterada com sucesso.";
 
-      salvarNoFirestore();
-      registrarLog(
+      await salvarNoFirestore();
+      await registrarLog(
         "Alterar senha de entrada",
         "Senha de entrada alterada (valor não registrado por segurança)."
       );
@@ -1370,7 +1363,7 @@
             salvarNoFirestore();
 
             const refeicao = refeicoes.find(r => r.id === refeicaoId);
-            const nomeRefeicao = refeicoes ? refeicao.nome : `refeição #${refeicaoId}`;
+            const nomeRefeicao = refeicao ? refeicao.nome : `refeição #${refeicaoId}`;
             registrarLog(
               "Desmarcar todos em refeição",
               `Todos foram removidos do ${nomeRefeicao}.`
@@ -1740,7 +1733,7 @@
             )}. `;
           }
         } else if (!souTopo && meusMembrosDiretos.length > 0) {
-          // Responsável intermediário (como a Camila): mostra quem ela cobre,
+          // Responsável intermediário: mostra quem ela cobre,
           // mas avisa que o saldo foi repassado para o topo.
           const partesDiretos = meusMembrosDiretos.map(idM => {
             const pessoaM = pessoas.find(x => x.id === idM);
@@ -1755,8 +1748,7 @@
           }
         }
 
-        // Texto do saldo final: se sou topo de grupo, fala "saldo do grupo",
-        // senão fala "saldo final" normal.
+        // Texto do saldo final
         if (souTopo && membrosDoMeuTopo.length > 1) {
           if (sFinal > 0.009) {
             resumo += `Saldo final do grupo (responsável ${p.nome}): tem a receber ${formatMoney(
@@ -1825,9 +1817,15 @@
         }
       });
 
-    // Botão para ver log (somente últimos 200, mais recentes em cima)
+    // Botão para ver log (toggle mostrar/esconder, últimos 200, mais recentes em cima)
     document.getElementById("btnVerLog").addEventListener("click", async () => {
       const divLog = document.getElementById("areaLog");
+      if (divLog.dataset.visible === "1") {
+        divLog.innerHTML = "";
+        divLog.dataset.visible = "0";
+        return;
+      }
+
       divLog.textContent = "Carregando log...";
       try {
         const q = query(
@@ -1838,6 +1836,7 @@
         const snap = await getDocs(q);
         if (snap.empty) {
           divLog.textContent = "Nenhum registro ainda.";
+          divLog.dataset.visible = "1";
           return;
         }
 
@@ -1856,9 +1855,11 @@
         });
         html += "</ul>";
         divLog.innerHTML = html;
+        divLog.dataset.visible = "1";
       } catch (erro) {
         console.error(erro);
         divLog.textContent = "Erro ao carregar log.";
+        divLog.dataset.visible = "1";
       }
     });
   </script>
