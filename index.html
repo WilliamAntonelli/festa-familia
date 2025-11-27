@@ -1599,27 +1599,7 @@
     // Botão para ver log (somente últimos 200, mais recentes em cima)
     document.getElementById("btnVerLog").addEventListener("click", async () => {
       const divLog = document.getElementById("areaLog");
-      const btn = document.getElementById("btnVerLog");
-
-      // Se já tem conteúdo e está visível → esconde
-      if (divLog.innerHTML !== "" && divLog.style.display !== "none") {
-        divLog.style.display = "none";
-        btn.textContent = "Ver log completo";
-        return;
-      }
-
-      // Se já tem conteúdo e está escondido → mostra sem recarregar
-      if (divLog.innerHTML !== "" && divLog.style.display === "none") {
-        divLog.style.display = "block";
-        btn.textContent = "Esconder log";
-        return;
-      }
-
-      // Primeira vez (sem conteúdo) → carrega do Firestore
-      divLog.style.display = "block";
       divLog.textContent = "Carregando log...";
-      btn.textContent = "Esconder log";
-
       try {
         const q = query(
           collection(db, "logs"),
