@@ -195,7 +195,7 @@
         <legend>Quem participou de qual refeição?</legend>
         <p class="info">
           Marque as caixas para indicar que a pessoa participou daquela refeição.
-          O custo de cada refeição será dividido igualmente entre os participantes.
+          O custo de cada refeição será dividido considerando se alguém é isento ou paga meia.
         </p>
         <div class="participacao-actions">
           <button id="btnMarcarTodos">Marcar todos (todas as refeições)</button>
@@ -322,7 +322,6 @@
     const festaDocRef = doc(db, "festas", "festa-principal");
 
     // --------- LOGIN SIMPLES ---------
-    // Troque AQUI a senha da família (se quiser):
     const SENHA_FAMILIA = "salvador1234";
     let usuarioAtual = null;
 
@@ -357,7 +356,8 @@
     });
 
     // --------- DADOS EM MEMÓRIA ---------
-    const pessoas = [];       // { id, nome }
+    // pessoas: { id, nome, tipo } com tipo = "normal" | "isento" | "meia"
+    const pessoas = [];
     const refeicoes = [];     // { id, nome, custo }
     const gastos = [];        // { pessoaId, descricao, valor }
     const grupos = [];        // { responsavelId, membroId }
@@ -365,6 +365,18 @@
 
     let pessoaIdSeq = 1;
     let refeicaoIdSeq = 1;
+
+    // --------- HELPERS DE STATUS ---------
+    function getStatusPessoa(p) {
+      return (p && p.tipo) ? p.tipo : "normal";
+    }
+
+    function getNomeComStatus(p) {
+      const status = getStatusPessoa(p);
+      if (status === "isento") return `${p.nome} (isento)`;
+      if (status === "meia") return `${p.nome} (paga meia)`;
+      return p.nome;
+    }
 
     // --------- DOM BÁSICO ---------
     const tituloPagina = document.getElementById("tituloPagina");
@@ -404,7 +416,6 @@
           detalhes,
           createdAt: serverTimestamp()
         });
-        // Garante que fiquem no máximo 200 registros
         await limitarLogs(200);
       } catch (erro) {
         console.error("Erro ao registrar log:", erro);
@@ -444,7 +455,6 @@
             status.textContent =
               "Nenhum dado na nuvem ainda. Use normalmente que será salvo no Firestore.";
           }
-          // UI vazia
           if (observacoesInput) observacoesInput.value = "";
           atualizarListaPessoas();
           atualizarSelectsPessoas();
@@ -457,14 +467,12 @@
 
         const obj = snap.data() || {};
 
-        // Limpa estruturas
         pessoas.length = 0;
         refeicoes.length = 0;
         gastos.length = 0;
         grupos.length = 0;
         for (const k in participacao) delete participacao[k];
 
-        // Título, se tiver
         if (obj.titulo) {
           tituloFestaInput.value = obj.titulo;
           const t = obj.titulo.trim() || "Controle de Gastos da Festa em Família";
@@ -472,13 +480,18 @@
           document.title = t;
         }
 
-        // Observações
         if (observacoesInput) {
           observacoesInput.value = obj.observacoes || "";
         }
 
         if (Array.isArray(obj.pessoas)) {
-          obj.pessoas.forEach(p => pessoas.push({ id: p.id, nome: p.nome }));
+          obj.pessoas.forEach(p =>
+            pessoas.push({
+              id: p.id,
+              nome: p.nome,
+              tipo: p.tipo || "normal"
+            })
+          );
         }
         if (Array.isArray(obj.refeicoes)) {
           obj.refeicoes.forEach(r =>
@@ -514,7 +527,6 @@
           }
         }
 
-        // Ajusta sequenciais
         const maxPessoaId = pessoas.reduce((max, p) => Math.max(max, p.id || 0), 0);
         const maxRefeicaoId = refeicoes.reduce(
           (max, r) => Math.max(max, r.id || 0),
@@ -523,7 +535,6 @@
         pessoaIdSeq = maxPessoaId + 1;
         refeicaoIdSeq = maxRefeicaoId + 1;
 
-        // Atualiza UI
         atualizarListaPessoas();
         atualizarSelectsPessoas();
         atualizarListaRefeicoes();
@@ -550,7 +561,6 @@
       salvarNoFirestore();
     });
 
-    // Observações salvas automaticamente
     if (observacoesInput) {
       observacoesInput.addEventListener("input", () => {
         salvarNoFirestore();
@@ -639,7 +649,13 @@
           }
 
           if (Array.isArray(obj.pessoas)) {
-            obj.pessoas.forEach(p => pessoas.push({ id: p.id, nome: p.nome }));
+            obj.pessoas.forEach(p =>
+              pessoas.push({
+                id: p.id,
+                nome: p.nome,
+                tipo: p.tipo || "normal"
+              })
+            );
           }
           if (Array.isArray(obj.refeicoes)) {
             obj.refeicoes.forEach(r =>
@@ -756,7 +772,7 @@
     function excluirGrupo(index) {
       if (index >= 0 && index < grupos.length) grupos.splice(index, 1);
       atualizarListaGrupos();
-      atualizarListaPessoas(); // atualiza parênteses do responsável
+      atualizarListaPessoas();
       salvarNoFirestore();
       registrarLog("Excluir grupo", `Índice grupo: ${index}`);
     }
@@ -893,7 +909,7 @@
         "<table><thead><tr><th>Nome</th><th>Ações</th></tr></thead><tbody>";
       pessoas.forEach((p, index) => {
         const grupoDoMembro = grupos.find(g => g.membroId === p.id);
-        let nomeComResponsavel = p.nome;
+        let nomeComResponsavel = getNomeComStatus(p);
         if (grupoDoMembro) {
           const resp = pessoas.find(x => x.id === grupoDoMembro.responsavelId);
           if (resp) {
@@ -901,9 +917,16 @@
           }
         }
 
+        const status = getStatusPessoa(p);
+
         html += `<tr data-index="${index}">
           <td>${nomeComResponsavel}</td>
           <td>
+            <select class="select-status" data-id="${p.id}">
+              <option value="normal" ${status === "normal" ? "selected" : ""}>Normal</option>
+              <option value="isento" ${status === "isento" ? "selected" : ""}>Isento</option>
+              <option value="meia" ${status === "meia" ? "selected" : ""}>Paga meia</option>
+            </select>
             <button class="btn-small" data-acao="editar-pessoa" data-id="${p.id}">Editar</button>
             <button class="btn-small" data-acao="excluir-pessoa" data-id="${p.id}">Excluir</button>
           </td>
@@ -911,6 +934,23 @@
       });
       html += "</tbody></table>";
       div.innerHTML = html;
+
+      // handlers status
+      div.querySelectorAll(".select-status").forEach(sel => {
+        sel.addEventListener("change", () => {
+          const id = parseInt(sel.getAttribute("data-id"));
+          const p = pessoas.find(p => p.id === id);
+          if (!p) return;
+          p.tipo = sel.value;
+          salvarNoFirestore();
+          atualizarListaPessoas();
+          construirTabelaParticipacao();
+          registrarLog(
+            "Alterar status pessoa",
+            `Pessoa: ${p.nome}, status: ${sel.value}`
+          );
+        });
+      });
 
       div
         .querySelectorAll("button[data-acao='excluir-pessoa']")
@@ -1091,14 +1131,14 @@
       });
     }
 
-    // Info: quanto sai cada refeição por pessoa
+    // Info: resumo das refeições (contando tipos)
     function atualizarInfoRefeicoesPorPessoa() {
       const div = document.getElementById("infoRefeicoesPorPessoa");
       if (refeicoes.length === 0) {
         div.textContent = "";
         return;
       }
-      let html = "<strong>Resumo das refeições por pessoa:</strong><br>";
+      let html = "<strong>Resumo das refeições:</strong><br>";
       refeicoes.forEach(r => {
         const part = participacao[r.id] || [];
         const n = part.length;
@@ -1107,10 +1147,17 @@
             r.custo
           )} ao todo, ainda sem participantes.<br>`;
         } else {
-          const cota = r.custo / n;
+          let normais = 0, meias = 0, isentos = 0;
+          part.forEach(pId => {
+            const pessoa = pessoas.find(p => p.id === pId);
+            const tipo = getStatusPessoa(pessoa);
+            if (tipo === "isento") isentos++;
+            else if (tipo === "meia") meias++;
+            else normais++;
+          });
           html += `"${r.nome}" → ${formatMoney(
             r.custo
-          )} ao todo, ${n} participante(s) → ${formatMoney(cota)} por pessoa.<br>`;
+          )} ao todo, ${n} participante(s) (normais: ${normais}, meia: ${meias}, isento: ${isentos}).<br>`;
         }
       });
       div.innerHTML = html;
@@ -1138,7 +1185,7 @@
       html += "</tr></thead><tbody>";
 
       pessoas.forEach(p => {
-        html += `<tr><td>${p.nome}</td>`;
+        html += `<tr><td>${getNomeComStatus(p)}</td>`;
         refeicoes.forEach(r => {
           const jaParticipa =
             participacao[r.id] && participacao[r.id].includes(p.id);
@@ -1155,7 +1202,6 @@
       html += "</tbody></table>";
       wrapper.innerHTML = html;
 
-      // Checkboxes
       const checkboxes = wrapper.querySelectorAll("input[type='checkbox']");
       checkboxes.forEach(chk => {
         chk.addEventListener("change", function () {
@@ -1188,7 +1234,6 @@
         });
       });
 
-      // Botões por coluna (marcar/desmarcar só aquela refeição)
       wrapper
         .querySelectorAll("button[data-acao='mark-col']")
         .forEach(btn => {
@@ -1217,7 +1262,7 @@
             salvarNoFirestore();
 
             const refeicao = refeicoes.find(r => r.id === refeicaoId);
-            const nomeRefeicao = refeicao ? refeicao.nome : `refeição #${refeicaoId}`;
+            const nomeRefeicao = refeicoes ? refeicao.nome : `refeição #${refeicaoId}`;
             registrarLog(
               "Desmarcar todos em refeição",
               `Todos foram removidos do ${nomeRefeicao}.`
@@ -1250,20 +1295,38 @@
         totalRefeicoesPorPessoa[p.id] = 0;
       });
 
-      // Refeições
+      // Refeições com peso por status (normal = 1, meia = 0.5, isento = 0)
       refeicoes.forEach(r => {
         const participantes = participacao[r.id] || [];
-        const n = participantes.length;
-        if (n === 0) return;
+        if (participantes.length === 0) return;
 
-        const cota = r.custo / n;
+        let totalPeso = 0;
+        const pesosPorPessoa = {};
+
         participantes.forEach(pId => {
-          devePagar[pId] += cota;
+          const pessoa = pessoas.find(p => p.id === pId);
+          const status = getStatusPessoa(pessoa);
+          let peso = 1;
+          if (status === "isento") peso = 0;
+          else if (status === "meia") peso = 0.5;
+          pesosPorPessoa[pId] = peso;
+          totalPeso += peso;
+        });
+
+        // Se todos forem isentos, ninguém paga essa refeição
+        if (totalPeso <= 0) return;
+
+        const valorPorPeso = r.custo / totalPeso;
+
+        participantes.forEach(pId => {
+          const peso = pesosPorPessoa[pId];
+          const valorPessoa = valorPorPeso * peso;
+          devePagar[pId] += valorPessoa;
           detalhesRefeicoesPorPessoa[pId].push({
             refeicaoId: r.id,
-            valor: cota
+            valor: valorPessoa
           });
-          totalRefeicoesPorPessoa[pId] += cota;
+          totalRefeicoesPorPessoa[pId] += valorPessoa;
         });
       });
 
@@ -1308,7 +1371,7 @@
         alert("Digite o nome da pessoa.");
         return;
       }
-      pessoas.push({ id: pessoaIdSeq++, nome });
+      pessoas.push({ id: pessoaIdSeq++, nome, tipo: "normal" });
       document.getElementById("nomePessoa").value = "";
       atualizarListaPessoas();
       atualizarSelectsPessoas();
@@ -1396,7 +1459,7 @@
 
       grupos.push({ responsavelId, membroId });
       atualizarListaGrupos();
-      atualizarListaPessoas(); // para aparecer o responsável entre parênteses
+      atualizarListaPessoas();
       salvarNoFirestore();
 
       const resp = pessoas.find(p => p.id === responsavelId);
@@ -1567,7 +1630,7 @@
 
         html +=
           "<tr>" +
-          `<td>${p.nome}</td>` +
+          `<td>${getNomeComStatus(p)}</td>` +
           `<td>${formatMoney(d)}</td>` +
           `<td>${formatMoney(g)}</td>` +
           `<td class="${classe}">${formatMoney(sFinal)}</td>` +
@@ -1635,3 +1698,4 @@
   </script>
 </body>
 </html>
+
