@@ -333,10 +333,26 @@
     // Documento fixo da festa
     const festaDocRef = doc(db, "festas", "festa-principal");
 
+    // Carrega apenas a senha da família do Firestore ao iniciar a página
+    async function carregarSenhaFamiliaInicial() {
+      try {
+        const snap = await getDoc(festaDocRef);
+        if (snap.exists()) {
+          const obj = snap.data() || {};
+          if (obj.senhaFamilia && typeof obj.senhaFamilia === "string") {
+            senhaFamiliaAtual = obj.senhaFamilia;
+            console.log("Senha da família carregada do Firestore.");
+          }
+        }
+      } catch (erro) {
+        console.error("Erro ao carregar senha inicial da família:", erro);
+      }
+    }
+
     // --------- LOGIN E SENHAS ---------
     const ADMIN_NOME = "WilliamAntonelli";
     const SENHA_MESTRA = "5048558"; // nunca muda
-    let senhaFamiliaAtual = "salvador1234"; // começa com essa, mas pode ser alterada e salva
+    let senhaFamiliaAtual = "salvador1234"; // valor default, será sobrescrito pelo Firestore
 
     let usuarioAtual = null;
 
@@ -351,6 +367,9 @@
     const novaSenhaFamiliaLoginInput = document.getElementById("novaSenhaFamiliaLogin");
     const statusTrocaSenhaLogin = document.getElementById("statusTrocaSenhaLogin");
     const btnSalvarNovaSenhaLogin = document.getElementById("btnSalvarNovaSenhaLogin");
+
+    // Assim que o script carrega, busca a senha da família salva na nuvem
+    carregarSenhaFamiliaInicial();
 
     document.getElementById("btnLogin").addEventListener("click", async () => {
       const nome = loginNomeInput.value.trim();
