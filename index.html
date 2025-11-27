@@ -241,22 +241,6 @@
         <div id="listaGrupos" class="small"></div>
       </fieldset>
 
-      <!-- BACKUP / RESTAURAÇÃO -->
-      <fieldset>
-        <legend>Salvar / Carregar Arquivo de Dados</legend>
-        <p class="info">
-          Você pode baixar um arquivo <strong>.json</strong> com todos os cadastros e depois abrir esse arquivo em outro momento ou em outro computador.
-        </p>
-        <div class="backup-controls">
-          <button id="btnExportar">Exportar dados para arquivo (.json)</button>
-          <label>
-            Importar dados (.json):
-            <input type="file" id="inputImportar" accept="application/json">
-          </label>
-        </div>
-        <div id="statusBackup" class="small"></div>
-      </fieldset>
-
       <!-- CÁLCULO FINAL -->
       <fieldset>
         <legend>Cálculo Final</legend>
@@ -282,6 +266,23 @@
         <button id="btnVerLog">Ver log completo</button>
         <div id="areaLog" class="small" style="margin-top: 10px;"></div>
       </fieldset>
+
+      <!-- BACKUP / RESTAURAÇÃO (MOVIDO PARA O FINAL, ABAIXO DO LOG) -->
+      <fieldset>
+        <legend>Salvar / Carregar Arquivo de Dados</legend>
+        <p class="info">
+          Você pode baixar um arquivo <strong>.json</strong> com todos os cadastros e depois abrir esse arquivo em outro momento ou em outro computador.
+        </p>
+        <div class="backup-controls">
+          <button id="btnExportar">Exportar dados para arquivo (.json)</button>
+          <label>
+            Importar dados (.json):
+            <input type="file" id="inputImportar" accept="application/json">
+          </label>
+        </div>
+        <div id="statusBackup" class="small"></div>
+      </fieldset>
+
     </div>
   </div>
 
@@ -568,6 +569,8 @@
     }
 
     // -------------- DRAG & DROP GENÉRICO --------------
+
+
     function makeTableRowsDraggable(container, arrayRef, rebuildFn) {
       const rows = container.querySelectorAll("tbody tr");
       let dragStartIndex = null;
@@ -601,6 +604,8 @@
     }
 
     // -------------- EXPORTAÇÃO / IMPORTAÇÃO (ARQUIVO) --------------
+
+
     function getEstadoAtualParaArquivo() {
       return getEstadoAtual();
     }
@@ -722,6 +727,8 @@
     }
 
     // -------------- FUNÇÕES DE EXCLUSÃO --------------
+
+
     function excluirPessoa(id) {
       const idx = pessoas.findIndex(p => p.id === id);
       if (idx !== -1) pessoas.splice(idx, 1);
@@ -778,6 +785,8 @@
     }
 
     // -------------- FUNÇÕES DE EDIÇÃO --------------
+
+
     function editarPessoa(id) {
       const p = pessoas.find(p => p.id === id);
       if (!p) return;
@@ -871,6 +880,8 @@
     }
 
     // -------------- UI: SELECTS, LISTAS, PARTICIPAÇÃO --------------
+
+
     function atualizarSelectsPessoas() {
       const selectGastoPessoa = document.getElementById("selectGastoPessoa");
       const selectResponsavel = document.getElementById("selectResponsavel");
@@ -1274,6 +1285,8 @@
     }
 
     // -------------- CÁLCULO PRINCIPAL --------------
+
+
     function calcularTudo() {
       if (pessoas.length === 0 || refeicoes.length === 0) {
         return null;
@@ -1365,6 +1378,8 @@
     }
 
     // -------------- EVENTOS PRINCIPAIS --------------
+
+
     document.getElementById("btnAddPessoa").addEventListener("click", () => {
       const nome = document.getElementById("nomePessoa").value.trim();
       if (!nome) {
@@ -1698,4 +1713,3 @@
   </script>
 </body>
 </html>
-
