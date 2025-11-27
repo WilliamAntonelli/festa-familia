@@ -129,6 +129,10 @@
     #areaApp {
       display: none;
     }
+
+    textarea {
+      font-family: Arial, sans-serif;
+    }
   </style>
 </head>
 <body>
@@ -260,6 +264,15 @@
         <div id="resultado" class="resultado"></div>
       </fieldset>
 
+      <!-- OBSERVAÇÕES / RECADOS -->
+      <fieldset>
+        <legend>Observações / Recados</legend>
+        <p class="info">
+          Use este espaço para anotar qualquer informação importante sobre a divisão de gastos ou recados para o grupo.
+        </p>
+        <textarea id="observacoes" rows="4" style="width: 100%;"></textarea>
+      </fieldset>
+
       <!-- LOG DE AÇÕES -->
       <fieldset>
         <legend>Log de ações</legend>
@@ -286,7 +299,9 @@
       getDocs,
       query,
       orderBy,
-      serverTimestamp
+      serverTimestamp,
+      deleteDoc,
+      limit
     } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
 
     // Config do seu projeto
@@ -307,7 +322,7 @@
     const festaDocRef = doc(db, "festas", "festa-principal");
 
     // --------- LOGIN SIMPLES ---------
-    // Troque AQUI a senha da família:
+    // Troque AQUI a senha da família (se quiser):
     const SENHA_FAMILIA = "1234";
     let usuarioAtual = null;
 
@@ -354,12 +369,32 @@
     // --------- DOM BÁSICO ---------
     const tituloPagina = document.getElementById("tituloPagina");
     const tituloFestaInput = document.getElementById("tituloFesta");
+    const observacoesInput = document.getElementById("observacoes");
 
     function formatMoney(valor) {
       return "R$ " + valor.toFixed(2).replace(".", ",");
     }
 
-    // --------- LOG NO FIRESTORE ---------
+    // --------- LOG NO FIRESTORE (LIMITAR A 200) ---------
+    async function limitarLogs(maxRegistros) {
+      try {
+        const q = query(collection(db, "logs"), orderBy("createdAt", "asc"));
+        const snap = await getDocs(q);
+        const total = snap.size;
+        const excedente = total - maxRegistros;
+        if (excedente > 0) {
+          let count = 0;
+          for (const docSnap of snap.docs) {
+            if (count >= excedente) break;
+            await deleteDoc(docSnap.ref);
+            count++;
+          }
+        }
+      } catch (erro) {
+        console.error("Erro ao limitar logs:", erro);
+      }
+    }
+
     async function registrarLog(acao, detalhes) {
       try {
         if (!usuarioAtual) return;
@@ -369,6 +404,8 @@
           detalhes,
           createdAt: serverTimestamp()
         });
+        // Garante que fiquem no máximo 200 registros
+        await limitarLogs(200);
       } catch (erro) {
         console.error("Erro ao registrar log:", erro);
       }
@@ -378,7 +415,8 @@
     function getEstadoAtual() {
       const titulo =
         tituloFestaInput.value.trim() || "Controle de Gastos da Festa em Família";
-      return { titulo, pessoas, refeicoes, gastos, grupos, participacao };
+      const observacoes = observacoesInput ? observacoesInput.value : "";
+      return { titulo, observacoes, pessoas, refeicoes, gastos, grupos, participacao };
     }
 
     async function salvarNoFirestore() {
@@ -407,6 +445,7 @@
               "Nenhum dado na nuvem ainda. Use normalmente que será salvo no Firestore.";
           }
           // UI vazia
+          if (observacoesInput) observacoesInput.value = "";
           atualizarListaPessoas();
           atualizarSelectsPessoas();
           atualizarListaRefeicoes();
@@ -431,6 +470,11 @@
           const t = obj.titulo.trim() || "Controle de Gastos da Festa em Família";
           tituloPagina.textContent = t;
           document.title = t;
+        }
+
+        // Observações
+        if (observacoesInput) {
+          observacoesInput.value = obj.observacoes || "";
         }
 
         if (Array.isArray(obj.pessoas)) {
@@ -505,6 +549,13 @@
       document.title = texto;
       salvarNoFirestore();
     });
+
+    // Observações salvas automaticamente
+    if (observacoesInput) {
+      observacoesInput.addEventListener("input", () => {
+        salvarNoFirestore();
+      });
+    }
 
     // -------------- DRAG & DROP GENÉRICO --------------
     function makeTableRowsDraggable(container, arrayRef, rebuildFn) {
@@ -581,6 +632,10 @@
             const t = obj.titulo.trim() || "Controle de Gastos da Festa em Família";
             tituloPagina.textContent = t;
             document.title = t;
+          }
+
+          if (observacoesInput) {
+            observacoesInput.value = obj.observacoes || "";
           }
 
           if (Array.isArray(obj.pessoas)) {
@@ -701,6 +756,7 @@
     function excluirGrupo(index) {
       if (index >= 0 && index < grupos.length) grupos.splice(index, 1);
       atualizarListaGrupos();
+      atualizarListaPessoas(); // atualiza parênteses do responsável
       salvarNoFirestore();
       registrarLog("Excluir grupo", `Índice grupo: ${index}`);
     }
@@ -836,8 +892,17 @@
       let html =
         "<table><thead><tr><th>Nome</th><th>Ações</th></tr></thead><tbody>";
       pessoas.forEach((p, index) => {
+        const grupoDoMembro = grupos.find(g => g.membroId === p.id);
+        let nomeComResponsavel = p.nome;
+        if (grupoDoMembro) {
+          const resp = pessoas.find(x => x.id === grupoDoMembro.responsavelId);
+          if (resp) {
+            nomeComResponsavel += ` (Responsável: ${resp.nome})`;
+          }
+        }
+
         html += `<tr data-index="${index}">
-          <td>${p.nome}</td>
+          <td>${nomeComResponsavel}</td>
           <td>
             <button class="btn-small" data-acao="editar-pessoa" data-id="${p.id}">Editar</button>
             <button class="btn-small" data-acao="excluir-pessoa" data-id="${p.id}">Excluir</button>
@@ -1106,12 +1171,20 @@
 
           atualizarInfoRefeicoesPorPessoa();
           salvarNoFirestore();
-          registrarLog(
-            "Alterar participação",
-            `Pessoa ID ${pessoaId} na refeição ID ${refeicaoId} ${
-              this.checked ? "MARCADA" : "DESMARCADA"
-            }`
-          );
+
+          const pessoa = pessoas.find(p => p.id === pessoaId);
+          const refeicao = refeicoes.find(r => r.id === refeicaoId);
+          const nomePessoa = pessoa ? pessoa.nome : `Pessoa #${pessoaId}`;
+          const nomeRefeicao = refeicao ? refeicao.nome : `refeição #${refeicaoId}`;
+
+          let detalhes;
+          if (this.checked) {
+            detalhes = `${nomePessoa} foi adicionado ao ${nomeRefeicao}.`;
+          } else {
+            detalhes = `${nomePessoa} foi retirado do ${nomeRefeicao}.`;
+          }
+
+          registrarLog("Alterar participação", detalhes);
         });
       });
 
@@ -1124,9 +1197,12 @@
             participacao[refeicaoId] = pessoas.map(p => p.id);
             construirTabelaParticipacao();
             salvarNoFirestore();
+
+            const refeicao = refeicoes.find(r => r.id === refeicaoId);
+            const nomeRefeicao = refeicao ? refeicao.nome : `refeição #${refeicaoId}`;
             registrarLog(
               "Marcar todos em refeição",
-              `Refeição ID ${refeicaoId}`
+              `Todos foram adicionados ao ${nomeRefeicao}.`
             );
           });
         });
@@ -1139,9 +1215,12 @@
             participacao[refeicaoId] = [];
             construirTabelaParticipacao();
             salvarNoFirestore();
+
+            const refeicao = refeicoes.find(r => r.id === refeicaoId);
+            const nomeRefeicao = refeicao ? refeicao.nome : `refeição #${refeicaoId}`;
             registrarLog(
               "Desmarcar todos em refeição",
-              `Refeição ID ${refeicaoId}`
+              `Todos foram removidos do ${nomeRefeicao}.`
             );
           });
         });
@@ -1317,6 +1396,7 @@
 
       grupos.push({ responsavelId, membroId });
       atualizarListaGrupos();
+      atualizarListaPessoas(); // para aparecer o responsável entre parênteses
       salvarNoFirestore();
 
       const resp = pessoas.find(p => p.id === responsavelId);
@@ -1516,14 +1596,15 @@
         }
       });
 
-    // Botão para ver log
+    // Botão para ver log (somente últimos 200, mais recentes em cima)
     document.getElementById("btnVerLog").addEventListener("click", async () => {
       const divLog = document.getElementById("areaLog");
       divLog.textContent = "Carregando log...";
       try {
         const q = query(
           collection(db, "logs"),
-          orderBy("createdAt", "asc")
+          orderBy("createdAt", "desc"),
+          limit(200)
         );
         const snap = await getDocs(q);
         if (snap.empty) {
