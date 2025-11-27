@@ -267,7 +267,7 @@
         <div id="areaLog" class="small" style="margin-top: 10px;"></div>
       </fieldset>
 
-      <!-- BACKUP / RESTAURAÇÃO (MOVIDO PARA O FINAL, ABAIXO DO LOG) -->
+      <!-- BACKUP / RESTAURAÇÃO (ABAIXO DO LOG) -->
       <fieldset>
         <legend>Salvar / Carregar Arquivo de Dados</legend>
         <p class="info">
@@ -569,8 +569,6 @@
     }
 
     // -------------- DRAG & DROP GENÉRICO --------------
-
-
     function makeTableRowsDraggable(container, arrayRef, rebuildFn) {
       const rows = container.querySelectorAll("tbody tr");
       let dragStartIndex = null;
@@ -604,8 +602,6 @@
     }
 
     // -------------- EXPORTAÇÃO / IMPORTAÇÃO (ARQUIVO) --------------
-
-
     function getEstadoAtualParaArquivo() {
       return getEstadoAtual();
     }
@@ -727,8 +723,6 @@
     }
 
     // -------------- FUNÇÕES DE EXCLUSÃO --------------
-
-
     function excluirPessoa(id) {
       const idx = pessoas.findIndex(p => p.id === id);
       if (idx !== -1) pessoas.splice(idx, 1);
@@ -785,8 +779,6 @@
     }
 
     // -------------- FUNÇÕES DE EDIÇÃO --------------
-
-
     function editarPessoa(id) {
       const p = pessoas.find(p => p.id === id);
       if (!p) return;
@@ -880,8 +872,6 @@
     }
 
     // -------------- UI: SELECTS, LISTAS, PARTICIPAÇÃO --------------
-
-
     function atualizarSelectsPessoas() {
       const selectGastoPessoa = document.getElementById("selectGastoPessoa");
       const selectResponsavel = document.getElementById("selectResponsavel");
@@ -1142,7 +1132,7 @@
       });
     }
 
-    // Info: resumo das refeições (contando tipos)
+    // --------- RESUMO DAS REFEIÇÕES: VALOR POR PESSOA / MEIA ---------
     function atualizarInfoRefeicoesPorPessoa() {
       const div = document.getElementById("infoRefeicoesPorPessoa");
       if (refeicoes.length === 0) {
@@ -1154,21 +1144,52 @@
         const part = participacao[r.id] || [];
         const n = part.length;
         if (n === 0) {
-          html += `"${r.nome}" → ${formatMoney(
-            r.custo
-          )} ao todo, ainda sem participantes.<br>`;
+          html += `"${r.nome}" → ainda sem participantes.<br>`;
         } else {
           let normais = 0, meias = 0, isentos = 0;
+          let totalPeso = 0;
+
           part.forEach(pId => {
             const pessoa = pessoas.find(p => p.id === pId);
             const tipo = getStatusPessoa(pessoa);
-            if (tipo === "isento") isentos++;
-            else if (tipo === "meia") meias++;
-            else normais++;
+            if (tipo === "isento") {
+              isentos++;
+              // peso 0
+            } else if (tipo === "meia") {
+              meias++;
+              totalPeso += 0.5;
+            } else {
+              normais++;
+              totalPeso += 1;
+            }
           });
-          html += `"${r.nome}" → ${formatMoney(
-            r.custo
-          )} ao todo, ${n} participante(s) (normais: ${normais}, meia: ${meias}, isento: ${isentos}).<br>`;
+
+          if (totalPeso <= 0) {
+            // todo mundo isento
+            html += `"${r.nome}" → todos os participantes são isentos, ninguém paga nada. (${n} participante(s)).<br>`;
+          } else {
+            const valorPorPeso = r.custo / totalPeso;
+            const valorNormal = valorPorPeso;       // peso 1
+            const valorMeia = valorPorPeso * 0.5;   // peso 0.5
+
+            let linha = `"${r.nome}" → `;
+
+            if (normais > 0) {
+              linha += `${formatMoney(valorNormal)} por pessoa`;
+              if (meias > 0) linha += " normal";
+            }
+
+            if (meias > 0) {
+              if (normais > 0) {
+                linha += ` e ${formatMoney(valorMeia)} para quem paga meia`;
+              } else {
+                linha += `${formatMoney(valorMeia)} por pessoa (paga meia)`;
+              }
+            }
+
+            linha += ` (${n} participante(s): normais: ${normais}, meia: ${meias}, isento: ${isentos}).<br>`;
+            html += linha;
+          }
         }
       });
       div.innerHTML = html;
@@ -1285,8 +1306,6 @@
     }
 
     // -------------- CÁLCULO PRINCIPAL --------------
-
-
     function calcularTudo() {
       if (pessoas.length === 0 || refeicoes.length === 0) {
         return null;
@@ -1378,8 +1397,6 @@
     }
 
     // -------------- EVENTOS PRINCIPAIS --------------
-
-
     document.getElementById("btnAddPessoa").addEventListener("click", () => {
       const nome = document.getElementById("nomePessoa").value.trim();
       if (!nome) {
