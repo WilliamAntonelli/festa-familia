@@ -313,7 +313,8 @@
       orderBy,
       serverTimestamp,
       deleteDoc,
-      limit
+      limit,
+      updateDoc
     } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
 
     // Config do seu projeto
@@ -406,7 +407,7 @@
       await registrarLog("Login", "Usuário entrou no sistema.");
     });
 
-    // Salvar nova senha de entrada (administrador)
+    // Salvar nova senha de entrada (administrador) – AGORA SEM ZERAR OS DADOS
     btnSalvarNovaSenhaLogin.addEventListener("click", async () => {
       const nova = novaSenhaFamiliaLoginInput.value.trim();
       if (!nova) {
@@ -417,7 +418,15 @@
       novaSenhaFamiliaLoginInput.value = "";
       statusTrocaSenhaLogin.textContent = "Senha de entrada alterada com sucesso.";
 
-      await salvarNoFirestore();
+      try {
+        // Atualiza só o campo senhaFamilia, sem mexer no resto
+        await updateDoc(festaDocRef, { senhaFamilia: senhaFamiliaAtual });
+      } catch (erro) {
+        console.warn("Update falhou, tentando criar doc com a nova senha...", erro);
+        // Se o documento ainda não existir, cria um doc só com a senha
+        await setDoc(festaDocRef, { senhaFamilia: senhaFamiliaAtual }, { merge: true });
+      }
+
       await registrarLog(
         "Alterar senha de entrada",
         "Senha de entrada alterada (valor não registrado por segurança)."
@@ -1382,7 +1391,7 @@
             salvarNoFirestore();
 
             const refeicao = refeicoes.find(r => r.id === refeicaoId);
-            const nomeRefeicao = refeicao ? refeicao.nome : `refeição #${refeicaoId}`;
+            const nomeRefeicao = refeicoes ? refeicoes.nome : `refeição #${refeicaoId}`;
             registrarLog(
               "Desmarcar todos em refeição",
               `Todos foram removidos do ${nomeRefeicao}.`
